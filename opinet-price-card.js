@@ -209,12 +209,13 @@ if (!customElements.get('opinet-map-card')) {
         if (this._tries < 50) { setTimeout(() => this._initMap(), 100); }
         return;
       }
-      // ponytail: Leaflet ready check + init
+      // ponytail: Leaflet ready check + init — clear old panes first
       if (typeof L === 'undefined') {
         if (!this._leafLoading) { this._leafLoading = true; loadLeaflet(() => this._initMap()); }
         setTimeout(() => this._initMap(), 200);
         return;
       }
+      container.innerHTML = '';  // ponytail: nuke old Leaflet panes before recreation
       this._map = L.map(container, { attributionControl: false }).setView([36.5, 127.5], 7);
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 18 }).addTo(this._map);
       // ponytail: invalidateSize after render settle (fixes tile clipping)
