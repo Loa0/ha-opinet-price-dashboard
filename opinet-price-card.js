@@ -200,7 +200,7 @@ if (!customElements.get('opinet-map-card')) {
       if (this._map) return;
       // render container once
       if (!this.querySelector('.omc')) {
-        this.innerHTML = '<ha-card><div class="omc" style="height:400px;overflow:hidden;"></div></ha-card>';
+        this.innerHTML = '<div class="omc" style="height:400px;overflow:hidden;"></div>';
       }
       // ponytail: DOM-ready retry (ha-map-card uses offsetParent check)
       const container = this.querySelector('.omc');
