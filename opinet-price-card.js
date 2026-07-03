@@ -165,7 +165,7 @@ if (!customElements.get('opinet-rank-card')) {
 // ================================================================
 if (!customElements.get('opinet-map-card')) {
   class OpinetMapCard extends HTMLElement {
-    setConfig(c) { this._cfg = { ...c }; }
+    setConfig(c) { this._cfg = { ...c }; if (this._map) { this._map.remove(); this._map = null; } }
     set hass(h) { this._hass = h; if (this._cfg) this._initMap(); }
     _initMap() {
       if (this._map) return;
@@ -174,15 +174,26 @@ if (!customElements.get('opinet-map-card')) {
       }
       const container = this.querySelector('.omap');
       if (!container || !container.offsetParent) { setTimeout(() => this._initMap(), 100); return; }
-      // ponytail: HA already loads Leaflet via hui-map-card — use window.L, no CDN
       if (typeof L === 'undefined') { setTimeout(() => this._initMap(), 200); return; }
       this._map = L.map(container, { attributionControl: false }).setView([36.5, 127.5], 14);
-      // ponytail: CartoDB tiles (same as HA setupLeafletMap)
       L.tileLayer('https://basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}' + (L.Browser.retina ? '@2x' : '') + '.png', {
         attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a>, &copy; <a href="https://carto.com/attributions">CARTO</a>',
         maxZoom: 20,
       }).addTo(this._map);
-      const trackers = this._findTrackers();
+      let trackers = this._findTrackers();
+      // ponytail: filter by configured entity IDs
+      if (this._cfg.devices && this._cfg.devices.length) {
+        const ids = new Set(this._cfg.devices);
+        trackers = trackers.filter(t => ids.has(t.eid));
+      }
+      // ponytail: center on configured entity
+      let centerLat = null, centerLon = null;
+      if (this._cfg.center) {
+        const cs = this._hass.states[this._cfg.center];
+        if (cs && cs.attributes && cs.attributes.latitude != null) {
+          centerLat = cs.attributes.latitude; centerLon = cs.attributes.longitude;
+        }
+      }
       const bounds = [];
       for (const t of trackers) {
         const lat = t.attributes ? t.attributes.latitude : t.latitude;
@@ -201,8 +212,8 @@ if (!customElements.get('opinet-map-card')) {
           .bindPopup('<b>' + name + '</b><br>' + label + '<br>' + addr);
         bounds.push([lat, lon]);
       }
-      if (bounds.length) this._map.fitBounds(bounds, { padding: [20,20] });
-      // ponytail: invalidate on resize (ha-map-card pattern)
+      if (centerLat != null) this._map.setView([centerLat, centerLon], 14);
+      else if (bounds.length) this._map.fitBounds(bounds, { padding: [20,20] });
       new ResizeObserver(() => this._map && this._map.invalidateSize()).observe(container);
     }
     _findTrackers() {
