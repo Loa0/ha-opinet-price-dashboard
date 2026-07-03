@@ -11420,126 +11420,51 @@ svg.leaflet-image-layer.leaflet-interactive path {\r
     if (!customElements.get("opinet-map-card")) {
       class OpinetMapCard extends HTMLElement {
         setConfig(c) {
-          this._cfg = { ...c };
-          this._destroy();
+          this._cfg = c;
         }
         set hass(h) {
           this._hass = h;
-          if (this._cfg && this.isConnected && !this._map) this._draw();
-        }
-        connectedCallback() {
-          this._ro = new ResizeObserver(() => this._fixSize());
-          if (this._cfg && this._hass && !this._map) this._draw();
-        }
-        _fixSize() {
-          if (this._container && this._map) this._map.invalidateSize(false);
+          if (!this._cfg || !this._cfg.device_tracker) return;
+          const st = h.states[this._cfg.device_tracker];
+          if (!st || st.attributes.latitude == null) return;
+          const lat = st.attributes.latitude;
+          const lon = st.attributes.longitude;
+          if (!this._map) {
+            this._lat = lat;
+            this._lon = lon;
+            this._draw();
+          } else if (lat !== this._lat || lon !== this._lon) {
+            this._lat = lat;
+            this._lon = lon;
+            this._marker.setLatLng([lat, lon]);
+            this._map.setView([lat, lon], this._map.getZoom());
+          }
         }
         _draw() {
-          try {
-            this._drawImpl();
-          } catch (e) {
-            this._destroy();
-            this.innerHTML = '<div style="padding:16px;color:var(--error-color,red);">\uC9C0\uB3C4 \uC624\uB958: ' + e.message + "</div>";
-          }
-        }
-        _drawImpl() {
-          this._destroy();
           this.style.display = "block";
-          this.style.setProperty("height", "400px", "important");
-          const isDark = this._hass && this._hass.themes && this._hass.themes.darkMode;
-          const darkVar = isDark ? "--vic-map-tiles-filter:brightness(0.8) invert(0.9) contrast(2.1) brightness(2) opacity(0.27) grayscale(1);" : "";
-          this.innerHTML = `<div class="omap-card" style="background:var(--ha-card-background,var(--card-background-color,#fff));border-radius:var(--ha-card-border-radius,12px);box-shadow:var(--ha-card-box-shadow,0 1px 3px rgba(0,0,0,.12));overflow:hidden;width:100%;height:100%;">
-        <div class="map-wrapper" style="position:relative;width:100%;height:100%;display:flex;align-items:center;justify-content:center;${darkVar}">
-          <div class="omap-container" style="height:100%;width:100%;background:transparent!important;"></div>
-        </div>
-      </div>
-      <style class="omap-style">.leaflet-container{background:transparent!important}.map-tiles{filter:var(--vic-map-tiles-filter,none)}.leaflet-control-container{display:none}</style>`;
-          const container = this.querySelector(".omap-container");
-          this._container = container;
-          if (this._ro) this._ro.disconnect();
-          this._ro = new ResizeObserver(() => this._fixSize());
-          this._ro.observe(container);
-          const doInit = () => {
-            if (!container.isConnected || !container.offsetParent) {
-              requestAnimationFrame(doInit);
-              return;
-            }
-            if (this._map) {
-              this._map.remove();
-              this._map = null;
-            }
-            const retina = import_leaflet.default.Browser.retina;
-            const map = import_leaflet.default.map(container, {
-              dragging: true,
-              zoomControl: false,
-              scrollWheelZoom: true,
-              zoom: 14,
-              minZoom: 7
-            }).setView([36.5, 127.5], 14);
-            const tiles = import_leaflet.default.tileLayer.provider("CartoDB.Positron", {
-              className: "map-tiles",
-              detectRetina: true,
-              tileSize: retina ? 512 : 256,
-              zoomOffset: retina ? -1 : 0,
-              transparent: true
-            }).addTo(map);
-            this._map = map;
-            this._addMarkers();
-            let firstLoad = true;
-            tiles.on("load", () => {
-              if (firstLoad) {
-                firstLoad = false;
-                map.invalidateSize(false);
-              }
-            });
-          };
-          requestAnimationFrame(() => requestAnimationFrame(doInit));
+          this.style.height = (this._cfg.height || 400) + "px";
+          this.innerHTML = '<div id="omap" style="height:100%;width:100%;"></div>';
+          const c = this.querySelector("#omap");
+          const zoom = this._cfg.zoom || 14;
+          const map = import_leaflet.default.map(c, {
+            dragging: true,
+            zoomControl: false,
+            scrollWheelZoom: true
+          }).setView([this._lat, this._lon], zoom);
+          import_leaflet.default.tileLayer.provider("CartoDB.Positron", {
+            detectRetina: true,
+            tileSize: import_leaflet.default.Browser.retina ? 512 : 256,
+            zoomOffset: import_leaflet.default.Browser.retina ? -1 : 0,
+            transparent: true
+          }).addTo(map);
+          this._marker = import_leaflet.default.marker([this._lat, this._lon], {
+            icon: import_leaflet.default.divIcon({ className: "omarker" })
+          }).addTo(map);
+          this._map = map;
+          this._ro = new ResizeObserver(() => map.invalidateSize(false));
+          this._ro.observe(c);
         }
-        _addMarkers() {
-          if (!this._map) return;
-          let trackers = this._findTrackers();
-          if (this._cfg.devices && this._cfg.devices.length) {
-            const ids = new Set(this._cfg.devices);
-            trackers = trackers.filter((t) => ids.has(t.eid));
-          }
-          let centerLat = null, centerLon = null;
-          if (this._cfg.center) {
-            const cs = this._hass.states[this._cfg.center];
-            if (cs && cs.attributes && cs.attributes.latitude != null) {
-              centerLat = cs.attributes.latitude;
-              centerLon = cs.attributes.longitude;
-            }
-          }
-          const bounds = [];
-          for (const t of trackers) {
-            const attrs = t.attributes || t;
-            const lat = attrs.latitude, lon = attrs.longitude;
-            if (lat == null || lon == null) continue;
-            const price = attrs["\uAC00\uACA9"];
-            const label = price ? Number(price).toLocaleString() + "\uC6D0" : attrs["\uC0C1\uD638\uBA85"] || "";
-            const name = attrs["\uC0C1\uD638\uBA85"] || "";
-            const addr = attrs["\uC8FC\uC18C"] || "";
-            const icon = import_leaflet.default.divIcon({
-              className: "omarker",
-              html: '<div style="background:#1976d2;color:#fff;padding:2px 6px;border-radius:4px;font-size:11px;font-weight:600;white-space:nowrap;box-shadow:0 1px 3px rgba(0,0,0,.3);transform:translate(-50%,-100%);margin-top:-6px;">' + label + "</div>",
-              iconSize: [0, 0],
-              iconAnchor: [0, 0]
-            });
-            import_leaflet.default.marker([lat, lon], { icon }).addTo(this._map).bindPopup("<b>" + name + "</b><br>" + (price ? label : "") + "<br>" + addr);
-            bounds.push([lat, lon]);
-          }
-          if (centerLat != null) this._map.setView([centerLat, centerLon], 14);
-          else if (bounds.length) this._map.fitBounds(bounds, { padding: [20, 20], maxZoom: 12 });
-        }
-        _findTrackers() {
-          const list = [];
-          for (const [eid, s] of Object.entries(this._hass.states)) {
-            if (!eid.startsWith("device_tracker.")) continue;
-            if (s.attributes["\uC0C1\uD638\uBA85"]) list.push({ eid, ...s.attributes });
-          }
-          return list;
-        }
-        _destroy() {
+        disconnectedCallback() {
           if (this._ro) {
             this._ro.disconnect();
             this._ro = null;
@@ -11548,10 +11473,7 @@ svg.leaflet-image-layer.leaflet-interactive path {\r
             this._map.remove();
             this._map = null;
           }
-          this._container = null;
-        }
-        disconnectedCallback() {
-          this._destroy();
+          this._marker = null;
         }
         getCardSize() {
           return 6;
@@ -11561,30 +11483,20 @@ svg.leaflet-image-layer.leaflet-interactive path {\r
           el.style.display = "flex";
           el.style.flexDirection = "column";
           el.style.gap = "8px";
-          const centerPick = document.createElement("ha-entity-picker");
-          centerPick.setAttribute("label", "\uAE30\uC900 \uC704\uCE58");
-          centerPick.style.display = "block";
-          el.appendChild(centerPick);
-          const devPick = document.createElement("ha-entity-picker");
-          devPick.setAttribute("label", "\uC8FC\uC720\uC18C \uB9C8\uCEE4");
-          devPick.style.display = "block";
-          el.appendChild(devPick);
+          const dtPick = document.createElement("ha-entity-picker");
+          dtPick.setAttribute("label", "\uC704\uCE58 \uD2B8\uB798\uCEE4");
+          dtPick.style.display = "block";
+          el.appendChild(dtPick);
           el.setConfig = function(cfg) {
-            centerPick.value = cfg.center || "";
-            devPick.value = (cfg.devices || []).join(",");
+            dtPick.value = cfg.device_tracker || "";
           };
-          const fireChange = () => setTimeout(() => {
+          dtPick.addEventListener("value-changed", () => setTimeout(() => {
             const ev = new Event("config-changed", { bubbles: true, composed: true });
             ev.detail = { config: el.value };
             el.dispatchEvent(ev);
-          }, 0);
-          centerPick.addEventListener("value-changed", fireChange);
-          devPick.addEventListener("value-changed", fireChange);
+          }, 0));
           Object.defineProperty(el, "value", { get() {
-            const v = { type: "custom:opinet-map-card" };
-            if (centerPick.value) v.center = centerPick.value;
-            if (devPick.value) v.devices = devPick.value.split(",").filter(Boolean);
-            return v;
+            return { type: "custom:opinet-map-card", device_tracker: dtPick.value || void 0 };
           } });
           return el;
         }

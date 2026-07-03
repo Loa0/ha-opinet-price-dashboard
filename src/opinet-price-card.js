@@ -160,166 +160,89 @@ if (!customElements.get('opinet-rank-card')) {
 }
 
 // ================================================================
-// Map Card — npm-bundled Leaflet, vehicle-status-card pattern
+// Map Card — minimal: 1 device_tracker → 1 marker → focus
 // ================================================================
 if (!customElements.get('opinet-map-card')) {
   class OpinetMapCard extends HTMLElement {
-    setConfig(c) { this._cfg = { ...c }; this._destroy(); }
+    setConfig(c) { this._cfg = c; }
+
     set hass(h) {
       this._hass = h;
-      if (this._cfg && this.isConnected && !this._map) this._draw();
-    }
-
-    connectedCallback() {
-      this._ro = new ResizeObserver(() => this._fixSize());
-      // DOM에 연결된 후 hass가 이미 있으면 draw
-      if (this._cfg && this._hass && !this._map) this._draw();
-    }
-
-    _fixSize() {
-      if (this._container && this._map) this._map.invalidateSize(false);
+      if (!this._cfg || !this._cfg.device_tracker) return;
+      const st = h.states[this._cfg.device_tracker];
+      if (!st || st.attributes.latitude == null) return;
+      const lat = st.attributes.latitude;
+      const lon = st.attributes.longitude;
+      if (!this._map) {
+        this._lat = lat; this._lon = lon;
+        this._draw();
+      } else if (lat !== this._lat || lon !== this._lon) {
+        this._lat = lat; this._lon = lon;
+        this._marker.setLatLng([lat, lon]);
+        this._map.setView([lat, lon], this._map.getZoom());
+      }
     }
 
     _draw() {
-      try { this._drawImpl(); }
-      catch(e) {
-        this._destroy();
-        this.innerHTML = '<div style="padding:16px;color:var(--error-color,red);">지도 오류: '+e.message+'</div>';
-      }
-    }
-
-    _drawImpl() {
-      this._destroy();
       this.style.display = 'block';
-      this.style.setProperty('height', '400px', 'important');
+      this.style.height = (this._cfg.height || 400) + 'px';
 
-      const isDark = this._hass && this._hass.themes && this._hass.themes.darkMode;
-      const darkVar = isDark ? '--vic-map-tiles-filter:brightness(0.8) invert(0.9) contrast(2.1) brightness(2) opacity(0.27) grayscale(1);' : '';
+      this.innerHTML = '<div id="omap" style="height:100%;width:100%;"></div>';
+      const c = this.querySelector('#omap');
 
-      // LitElement render() equivalent: single innerHTML, then querySelector
-      this.innerHTML = `<div class="omap-card" style="background:var(--ha-card-background,var(--card-background-color,#fff));border-radius:var(--ha-card-border-radius,12px);box-shadow:var(--ha-card-box-shadow,0 1px 3px rgba(0,0,0,.12));overflow:hidden;width:100%;height:100%;">
-        <div class="map-wrapper" style="position:relative;width:100%;height:100%;display:flex;align-items:center;justify-content:center;${darkVar}">
-          <div class="omap-container" style="height:100%;width:100%;background:transparent!important;"></div>
-        </div>
-      </div>
-      <style class="omap-style">.leaflet-container{background:transparent!important}.map-tiles{filter:var(--vic-map-tiles-filter,none)}.leaflet-control-container{display:none}</style>`;
+      const zoom = this._cfg.zoom || 14;
+      const map = L.map(c, {
+        dragging: true,
+        zoomControl: false,
+        scrollWheelZoom: true,
+      }).setView([this._lat, this._lon], zoom);
 
-      const container = this.querySelector('.omap-container');
-      this._container = container;
+      L.tileLayer.provider('CartoDB.Positron', {
+        detectRetina: true,
+        tileSize: L.Browser.retina ? 512 : 256,
+        zoomOffset: L.Browser.retina ? -1 : 0,
+        transparent: true,
+      }).addTo(map);
 
-      if (this._ro) this._ro.disconnect();
-      this._ro = new ResizeObserver(() => this._fixSize());
-      this._ro.observe(container);
+      this._marker = L.marker([this._lat, this._lon], {
+        icon: L.divIcon({ className: 'omarker' }),
+      }).addTo(map);
 
-      // updated() equivalent: double rAF → DOM layout 확정 후 initMap
-      const doInit = () => {
-        if (!container.isConnected || !container.offsetParent) {
-          requestAnimationFrame(doInit);
-          return;
-        }
-        if (this._map) { this._map.remove(); this._map = null; }
-        const retina = L.Browser.retina;
-        const map = L.map(container, {
-          dragging: true,
-          zoomControl: false,
-          scrollWheelZoom: true,
-          zoom: 14,
-          minZoom: 7,
-        }).setView([36.5, 127.5], 14);
-        const tiles = L.tileLayer.provider('CartoDB.Positron', {
-          className: 'map-tiles',
-          detectRetina: true,
-          tileSize: retina ? 512 : 256,
-          zoomOffset: retina ? -1 : 0,
-          transparent: true,
-        }).addTo(map);
-        this._map = map;
-        this._addMarkers();
-        // 첫 타일 로드 완료 후에만 invalidateSize → 로딩 중단 방지
-        let firstLoad = true;
-        tiles.on('load', () => {
-          if (firstLoad) { firstLoad = false; map.invalidateSize(false); }
-        });
-      };
-      requestAnimationFrame(() => requestAnimationFrame(doInit));
+      this._map = map;
+
+      this._ro = new ResizeObserver(() => map.invalidateSize(false));
+      this._ro.observe(c);
     }
 
-    _addMarkers() {
-      if (!this._map) return;
-      let trackers = this._findTrackers();
-      if (this._cfg.devices && this._cfg.devices.length) {
-        const ids = new Set(this._cfg.devices);
-        trackers = trackers.filter(t => ids.has(t.eid));
-      }
-      let centerLat = null, centerLon = null;
-      if (this._cfg.center) {
-        const cs = this._hass.states[this._cfg.center];
-        if (cs && cs.attributes && cs.attributes.latitude != null) {
-          centerLat = cs.attributes.latitude; centerLon = cs.attributes.longitude;
-        }
-      }
-      const bounds = [];
-      for (const t of trackers) {
-        const attrs = t.attributes || t;
-        const lat = attrs.latitude, lon = attrs.longitude;
-        if (lat == null || lon == null) continue;
-        const price = attrs['가격'];
-        const label = price ? Number(price).toLocaleString() + '원' : (attrs['상호명'] || '');
-        const name = attrs['상호명'] || '';
-        const addr = attrs['주소'] || '';
-        const icon = L.divIcon({
-          className: 'omarker',
-          html: '<div style="background:#1976d2;color:#fff;padding:2px 6px;border-radius:4px;font-size:11px;font-weight:600;white-space:nowrap;box-shadow:0 1px 3px rgba(0,0,0,.3);transform:translate(-50%,-100%);margin-top:-6px;">' + label + '</div>',
-          iconSize: [0,0], iconAnchor: [0,0]
-        });
-        L.marker([lat, lon], { icon }).addTo(this._map)
-          .bindPopup('<b>' + name + '</b><br>' + (price ? label : '') + '<br>' + addr);
-        bounds.push([lat, lon]);
-      }
-      if (centerLat != null) this._map.setView([centerLat, centerLon], 14);
-      else if (bounds.length) this._map.fitBounds(bounds, { padding: [20,20], maxZoom: 12 });
-    }
-
-    _findTrackers() {
-      const list = [];
-      for (const [eid, s] of Object.entries(this._hass.states)) {
-        if (!eid.startsWith('device_tracker.')) continue;
-        if (s.attributes['상호명']) list.push({ eid, ...s.attributes });
-      }
-      return list;
-    }
-
-    _destroy() {
+    disconnectedCallback() {
       if (this._ro) { this._ro.disconnect(); this._ro = null; }
       if (this._map) { this._map.remove(); this._map = null; }
-      this._container = null;
+      this._marker = null;
     }
-    disconnectedCallback() { this._destroy(); }
+
     getCardSize() { return 6; }
 
     static getConfigElement() {
       const el = document.createElement('div');
       el.style.display = 'flex'; el.style.flexDirection = 'column'; el.style.gap = '8px';
-      const centerPick = document.createElement('ha-entity-picker');
-      centerPick.setAttribute('label', '기준 위치'); centerPick.style.display = 'block';
-      el.appendChild(centerPick);
-      const devPick = document.createElement('ha-entity-picker');
-      devPick.setAttribute('label', '주유소 마커'); devPick.style.display = 'block';
-      el.appendChild(devPick);
+
+      const dtPick = document.createElement('ha-entity-picker');
+      dtPick.setAttribute('label', '위치 트래커');
+      dtPick.style.display = 'block';
+      el.appendChild(dtPick);
+
       el.setConfig = function(cfg) {
-        centerPick.value = cfg.center || ''; devPick.value = (cfg.devices || []).join(',');
+        dtPick.value = cfg.device_tracker || '';
       };
-      const fireChange = () => setTimeout(() => {
+
+      dtPick.addEventListener('value-changed', () => setTimeout(() => {
         const ev = new Event('config-changed', { bubbles: true, composed: true });
-        ev.detail = { config: el.value }; el.dispatchEvent(ev);
-      }, 0);
-      centerPick.addEventListener('value-changed', fireChange);
-      devPick.addEventListener('value-changed', fireChange);
+        ev.detail = { config: el.value };
+        el.dispatchEvent(ev);
+      }, 0));
+
       Object.defineProperty(el, 'value', { get() {
-        const v = { type: 'custom:opinet-map-card' };
-        if (centerPick.value) v.center = centerPick.value;
-        if (devPick.value) v.devices = devPick.value.split(',').filter(Boolean);
-        return v;
+        return { type: 'custom:opinet-map-card', device_tracker: dtPick.value || undefined };
       }});
       return el;
     }
