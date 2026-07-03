@@ -162,7 +162,11 @@ if (!customElements.get('opinet-rank-card')) {
       // ponytail: setTimeout lets DOM settle before reading checked/value
       const fireChange = () => {
         if (_init) return;
-        setTimeout(() => el.dispatchEvent(new Event('config-changed', { bubbles: true, composed: true })), 0);
+        setTimeout(() => {
+          const ev = new Event('config-changed', { bubbles: true, composed: true });
+          ev.detail = { config: el.value };
+          el.dispatchEvent(ev);
+        }, 0);
       };
       titleInp.addEventListener('value-changed', fireChange);
       devInp.addEventListener('value-changed', fireChange);
