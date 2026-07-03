@@ -186,7 +186,7 @@ if (!customElements.get('opinet-map-card')) {
       }
 
       // opinet trackers (gas stations) by device_id
-      const trackers = [];
+      let trackers = [];
       if (this._cfg.opinet_tracker && h.entities && h.entities[this._cfg.opinet_tracker]) {
         const deviceId = h.entities[this._cfg.opinet_tracker].device_id;
         if (deviceId) {
@@ -197,6 +197,16 @@ if (!customElements.get('opinet-map-card')) {
             if (!ent || ent.device_id !== deviceId) continue;
             trackers.push({ eid, ...s.attributes });
           }
+        }
+        // dedup by 상호명 (keep first occurrence)
+        if (trackers.length > 1) {
+          const seen = new Set();
+          trackers = trackers.filter(t => {
+            const name = t['상호명'] || '';
+            if (seen.has(name)) return false;
+            seen.add(name);
+            return true;
+          });
         }
       }
 

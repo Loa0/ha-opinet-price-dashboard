@@ -11437,7 +11437,7 @@ svg.leaflet-image-layer.leaflet-interactive path {\r
               centerLon = cs.attributes.longitude;
             }
           }
-          const trackers = [];
+          let trackers = [];
           if (this._cfg.opinet_tracker && h.entities && h.entities[this._cfg.opinet_tracker]) {
             const deviceId = h.entities[this._cfg.opinet_tracker].device_id;
             if (deviceId) {
@@ -11448,6 +11448,15 @@ svg.leaflet-image-layer.leaflet-interactive path {\r
                 if (!ent || ent.device_id !== deviceId) continue;
                 trackers.push({ eid, ...s.attributes });
               }
+            }
+            if (trackers.length > 1) {
+              const seen = /* @__PURE__ */ new Set();
+              trackers = trackers.filter((t) => {
+                const name = t["\uC0C1\uD638\uBA85"] || "";
+                if (seen.has(name)) return false;
+                seen.add(name);
+                return true;
+              });
             }
           }
           if (!centerLat && !trackers.length) return;
