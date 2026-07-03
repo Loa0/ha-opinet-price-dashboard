@@ -134,8 +134,8 @@ if (!customElements.get('opinet-rank-card')) {
       el.style.flexDirection = 'column';
       el.style.gap = '8px';
       el.innerHTML = `
-        <paper-input label="제목" value="⛽ 오피넷 주유소"></paper-input>
-        <paper-input label="기기 선택 (Device ID)" placeholder="HA 설정 → 기기 → URL에서 ID 복사"></paper-input>
+        <input placeholder="제목" value="⛽ 오피넷 주유소" style="width:100%;padding:8px;box-sizing:border-box;margin-bottom:8px;font-size:14px;border:1px solid var(--divider-color,#ccc);border-radius:4px;background:var(--card-background-color,#fff);color:var(--primary-text-color,#000)">
+        <input placeholder="기기 ID (선택)" style="width:100%;padding:8px;box-sizing:border-box;margin-bottom:8px;font-size:14px;border:1px solid var(--divider-color,#ccc);border-radius:4px;background:var(--card-background-color,#fff);color:var(--primary-text-color,#000)">
         <ha-formfield label="API 사용량 표시">
           <ha-switch checked></ha-switch>
         </ha-formfield>
@@ -143,8 +143,8 @@ if (!customElements.get('opinet-rank-card')) {
           <ha-switch></ha-switch>
         </ha-formfield>
       `;
-      const titleInp = el.querySelectorAll('paper-input')[0];
-      const devInp = el.querySelectorAll('paper-input')[1];
+      const titleInp = el.querySelectorAll('input')[0];
+      const devInp = el.querySelectorAll('input')[1];
       const usageSw = el.querySelectorAll('ha-switch')[0];
       const favSw = el.querySelectorAll('ha-switch')[1];
 
@@ -168,8 +168,8 @@ if (!customElements.get('opinet-rank-card')) {
           el.dispatchEvent(ev);
         }, 0);
       };
-      titleInp.addEventListener('value-changed', fireChange);
-      devInp.addEventListener('value-changed', fireChange);
+      titleInp.addEventListener('input', fireChange);
+      devInp.addEventListener('input', fireChange);
       usageSw.addEventListener('click', fireChange);
       favSw.addEventListener('click', fireChange);
 
