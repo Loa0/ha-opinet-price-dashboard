@@ -193,9 +193,11 @@ if (!customElements.get('opinet-rank-card')) {
 // ================================================================
 if (!customElements.get('opinet-map-card')) {
   class OpinetMapCard extends HTMLElement {
-    setConfig(c) { this._cfg = { ...c }; }
+    setConfig(c) { this._cfg = { ...c }; delete this._mapReady; }
     set hass(h) { this._hass = h; if (this._cfg) this._draw(); }
     _draw() {
+      // ponytail: init-once like ha-map-card's firstUpdated — skip map recreation
+      if (this._mapReady) return;
       const trackers = findTrackers(this._hass);
       // ponytail: filter + center, don't touch render loop
       const filtered = (!this._cfg.devices || !this._cfg.devices.length)
@@ -242,6 +244,7 @@ if (!customElements.get('opinet-map-card')) {
           if (centerLat != null) this._map.setView([centerLat, centerLon], 14);
           else if (bounds.length) this._map.fitBounds(bounds, { padding: [20,20] });
           else this._map.setView([36.5, 127.5], 7);
+          this._mapReady = true;
         } catch(e) {
           el.innerHTML = '<div style="padding:16px;color:red;">지도 오류: ' + e.message + '</div>';
         }
