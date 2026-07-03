@@ -174,7 +174,7 @@ if (!customElements.get('opinet-rank-card')) {
       favSw.addEventListener('click', fireChange);
 
       Object.defineProperty(el, 'value', { get() {
-        const v = { title: titleInp.value, show_usage: usageSw.checked, show_fav: favSw.checked };
+        const v = { type: 'custom:opinet-rank-card', title: titleInp.value, show_usage: usageSw.checked, show_fav: favSw.checked };
         if (devInp.value) v.device = devInp.value;
         return v;
       }});
