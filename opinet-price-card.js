@@ -25,11 +25,16 @@ function loadLeaflet(cb) {
 }
 
 // ===== helpers =====
-function findStations(hass) {
+function findStations(hass, deviceId) {
   const list = [];
   for (const [eid, s] of Object.entries(hass.states)) {
     if (!eid.startsWith('sensor.')) continue;
     if (s.attributes['순위'] == null) continue;
+    // device filter
+    if (deviceId && hass.entities) {
+      const ent = hass.entities[eid];
+      if (!ent || ent.device_id !== deviceId) continue;
+    }
     list.push({ eid, ...s.attributes });
   }
   list.sort((a, b) => (a['순위']||99) - (b['순위']||99));
@@ -67,7 +72,7 @@ if (!customElements.get('opinet-rank-card')) {
     setConfig(c) { this._cfg = { title: '⛽ 오피넷 주유소', show_usage: true, ...c }; }
     set hass(h) { this._hass = h; if (this._cfg) this._draw(); }
     _draw() {
-      const stations = findStations(this._hass);
+      const stations = findStations(this._hass, this._cfg.device);
       const refreshBtn = findRefreshButton(this._hass);
       const usageEid = findUsage(this._hass);
       let rows = '';
@@ -104,6 +109,44 @@ if (!customElements.get('opinet-rank-card')) {
       });
     }
     getCardSize() { return 3; }
+    static getConfigElement() {
+      const el = document.createElement('div');
+      el.style.display = 'flex';
+      el.style.flexDirection = 'column';
+      el.style.gap = '8px';
+      el.innerHTML = `
+        <paper-input label="제목" value="⛽ 오피넷 주유소"></paper-input>
+        <ha-formfield label="API 사용량 표시">
+          <ha-switch checked></ha-switch>
+        </ha-formfield>
+        <paper-input label="Device ID (선택)" placeholder="특정 기기만 표시 시 입력"></paper-input>
+      `;
+      const titleInp = el.querySelectorAll('paper-input')[0];
+      const usageSw = el.querySelector('ha-switch');
+      const deviceInp = el.querySelectorAll('paper-input')[1];
+
+      el.setConfig = function(cfg) {
+        titleInp.value = cfg.title || '⛽ 오피넷 주유소';
+        usageSw.checked = cfg.show_usage !== false;
+        deviceInp.value = cfg.device || '';
+      };
+
+      const fireChange = () => el.dispatchEvent(new Event('config-changed', { bubbles: true, composed: true }));
+      titleInp.addEventListener('value-changed', fireChange);
+      usageSw.addEventListener('change', fireChange);
+      deviceInp.addEventListener('value-changed', fireChange);
+
+      Object.defineProperty(el, 'value', { get() {
+        const v = { title: titleInp.value, show_usage: usageSw.checked };
+        if (deviceInp.value) v.device = deviceInp.value;
+        return v;
+      }});
+
+      return el;
+    }
+    static getStubConfig() {
+      return { title: '⛽ 오피넷 주유소', show_usage: true };
+    }
   }
   customElements.define('opinet-rank-card', OpinetRankCard);
 }
