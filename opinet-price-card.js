@@ -155,11 +155,12 @@ if (!customElements.get('opinet-rank-card')) {
         favSw.checked = cfg.show_fav === true;
       };
 
-      const fireChange = () => el.dispatchEvent(new Event('config-changed', { bubbles: true, composed: true }));
+      // ponytail: setTimeout lets DOM settle before reading checked/value
+      const fireChange = () => setTimeout(() => el.dispatchEvent(new Event('config-changed', { bubbles: true, composed: true })), 0);
       titleInp.addEventListener('value-changed', fireChange);
       devInp.addEventListener('value-changed', fireChange);
-      usageSw.addEventListener('change', fireChange);
-      favSw.addEventListener('change', fireChange);
+      usageSw.addEventListener('click', fireChange);
+      favSw.addEventListener('click', fireChange);
 
       Object.defineProperty(el, 'value', { get() {
         const v = { title: titleInp.value, show_usage: usageSw.checked, show_fav: favSw.checked };
