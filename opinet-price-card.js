@@ -213,7 +213,7 @@ if (!customElements.get('opinet-map-card')) {
         return;
       }
       const mapId = 'omap-' + Date.now();
-      this.innerHTML = '<div id="' + mapId + '" style="height:400px;"></div>';
+      this.innerHTML = '<ha-card><div id="' + mapId + '" style="height:400px;"></div></ha-card>';
       setTimeout(() => loadLeaflet(() => {
         const el = document.getElementById(mapId);
         if (!el) return;
