@@ -1,0 +1,14 @@
+{
+  "name": "ha-opinet-price-dashboard",
+  "version": "2.2.0",
+  "private": true,
+  "scripts": {
+    "build": "node build.mjs"
+  },
+  "devDependencies": {
+    "esbuild": "^0.25.0"
+  },
+  "dependencies": {
+    "leaflet": "^1.9.4"
+  }
+}
