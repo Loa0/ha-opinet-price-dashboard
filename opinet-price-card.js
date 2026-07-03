@@ -217,6 +217,9 @@ if (!customElements.get('opinet-map-card')) {
       }
       this._map = L.map(container, { attributionControl: false }).setView([36.5, 127.5], 7);
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 18 }).addTo(this._map);
+      // ponytail: ha-map-card ResizeObserver → invalidateSize on resize (fixes broken tiles)
+      this._obs = new ResizeObserver(() => this._map && this._map.invalidateSize());
+      this._obs.observe(container);
       // markers
       const trackers = findTrackers(this._hass);
       const filtered = (!this._cfg.devices || !this._cfg.devices.length)
@@ -251,6 +254,11 @@ if (!customElements.get('opinet-map-card')) {
       else if (bounds.length) this._map.fitBounds(bounds, { padding: [20,20] });
     }
     getCardSize() { return 6; }
+    disconnectedCallback() {
+      // ponytail: ha-map-card cleanup pattern
+      if (this._obs) { this._obs.disconnect(); this._obs = null; }
+      if (this._map) { this._map.remove(); this._map = null; }
+    }
     // ponytail: copy-paste-adapt from rank card editor pattern
     static getConfigElement() {
       const el = document.createElement('div');
