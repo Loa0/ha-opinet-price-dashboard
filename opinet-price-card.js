@@ -198,12 +198,12 @@ if (!customElements.get('opinet-map-card')) {
     set hass(h) { this._hass = h; if (this._cfg) this._initMap(); }
     _initMap() {
       if (this._map) return;
-      // render container once
-      if (!this.querySelector('.omc')) {
-        this.innerHTML = '<div class="omc" style="height:400px;overflow:hidden;"></div>';
+      // render container once — outer clips, inner is Leaflet target
+      if (!this.querySelector('.omw')) {
+        this.innerHTML = '<div class="omw" style="height:400px;overflow:hidden;"><div class="omap" style="height:100%;"></div></div>';
       }
-      // ponytail: DOM-ready retry (ha-map-card uses offsetParent check)
-      const container = this.querySelector('.omc');
+      const wrapper = this.querySelector('.omw');
+      const container = this.querySelector('.omap');
       this._tries = (this._tries || 0) + 1;
       if (!container || !container.offsetParent) {
         if (this._tries < 50) { setTimeout(() => this._initMap(), 100); }
@@ -215,14 +215,15 @@ if (!customElements.get('opinet-map-card')) {
         setTimeout(() => this._initMap(), 200);
         return;
       }
-      container.innerHTML = '';  // ponytail: nuke old Leaflet panes before recreation
+      container.innerHTML = '';  // nuke old Leaflet panes
       this._map = L.map(container, { attributionControl: false }).setView([36.5, 127.5], 7);
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 18 }).addTo(this._map);
-      // ponytail: invalidateSize after render settle (fixes tile clipping)
-      setTimeout(() => this._map && this._map.invalidateSize(), 300);
-      // ponytail: ha-map-card ResizeObserver → invalidateSize on resize (fixes broken tiles)
-      this._obs = new ResizeObserver(() => this._map && this._map.invalidateSize());
-      this._obs.observe(container);
+      // invalidate after tiles load + after layout settles
+      this._map.whenReady(() => setTimeout(() => this._map.invalidateSize(), 100));
+      // ResizeObserver on wrapper (outer clipping container)
+      if (this._obs) this._obs.disconnect();
+      this._obs = new ResizeObserver(() => { if (this._map) this._map.invalidateSize(); });
+      this._obs.observe(wrapper);
       // markers
       const trackers = findTrackers(this._hass);
       const filtered = (!this._cfg.devices || !this._cfg.devices.length)
