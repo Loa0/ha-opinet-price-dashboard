@@ -11428,18 +11428,11 @@ svg.leaflet-image-layer.leaflet-interactive path {\r
         }
         set hass(h) {
           this._hass = h;
-          if (!this._cfg || !this._cfg.device_tracker) return;
-          let deviceId = null;
-          if (h.entities && h.entities[this._cfg.device_tracker]) {
-            deviceId = h.entities[this._cfg.device_tracker].device_id;
-          }
-          if (!deviceId) return;
+          if (!this._cfg) return;
           const trackers = [];
           for (const [eid, s] of Object.entries(h.states)) {
             if (!eid.startsWith("device_tracker.")) continue;
             if (!s.attributes["\uC0C1\uD638\uBA85"]) continue;
-            const ent = h.entities && h.entities[eid];
-            if (!ent || ent.device_id !== deviceId) continue;
             trackers.push({ eid, ...s.attributes });
           }
           if (!trackers.length) return;
@@ -11541,23 +11534,13 @@ svg.leaflet-image-layer.leaflet-interactive path {\r
         }
         static getConfigElement() {
           const el = document.createElement("div");
-          el.style.display = "flex";
-          el.style.flexDirection = "column";
-          el.style.gap = "8px";
-          const dtPick = document.createElement("ha-entity-picker");
-          dtPick.setAttribute("label", "\uC704\uCE58 \uD2B8\uB798\uCEE4");
-          dtPick.style.display = "block";
-          el.appendChild(dtPick);
-          el.setConfig = function(cfg) {
-            dtPick.value = cfg.device_tracker || "";
+          el.style.padding = "8px";
+          el.style.color = "var(--secondary-text-color)";
+          el.innerHTML = "\uC0C1\uD638\uBA85\uC774 \uC788\uB294 \uBAA8\uB4E0 device_tracker \uC5D4\uD2F0\uD2F0\uB97C \uC790\uB3D9\uC73C\uB85C \uC9C0\uB3C4\uC5D0 \uD45C\uC2DC\uD569\uB2C8\uB2E4.";
+          el.setConfig = function() {
           };
-          dtPick.addEventListener("value-changed", () => setTimeout(() => {
-            const ev = new Event("config-changed", { bubbles: true, composed: true });
-            ev.detail = { config: el.value };
-            el.dispatchEvent(ev);
-          }, 0));
           Object.defineProperty(el, "value", { get() {
-            return { type: "custom:opinet-map-card", device_tracker: dtPick.value || void 0 };
+            return { type: "custom:opinet-map-card" };
           } });
           return el;
         }

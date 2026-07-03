@@ -173,20 +173,12 @@ if (!customElements.get('opinet-map-card')) {
 
     set hass(h) {
       this._hass = h;
-      if (!this._cfg || !this._cfg.device_tracker) return;
-      // resolve device_id from selected tracker
-      let deviceId = null;
-      if (h.entities && h.entities[this._cfg.device_tracker]) {
-        deviceId = h.entities[this._cfg.device_tracker].device_id;
-      }
-      if (!deviceId) return;
-      // find all trackers for this device
+      if (!this._cfg) return;
+      // collect all device_trackers with 상호명 attribute (no device filter)
       const trackers = [];
       for (const [eid, s] of Object.entries(h.states)) {
         if (!eid.startsWith('device_tracker.')) continue;
         if (!s.attributes['상호명']) continue;
-        const ent = h.entities && h.entities[eid];
-        if (!ent || ent.device_id !== deviceId) continue;
         trackers.push({ eid, ...s.attributes });
       }
       if (!trackers.length) return;
@@ -293,25 +285,12 @@ if (!customElements.get('opinet-map-card')) {
 
     static getConfigElement() {
       const el = document.createElement('div');
-      el.style.display = 'flex'; el.style.flexDirection = 'column'; el.style.gap = '8px';
-
-      const dtPick = document.createElement('ha-entity-picker');
-      dtPick.setAttribute('label', '위치 트래커');
-      dtPick.style.display = 'block';
-      el.appendChild(dtPick);
-
-      el.setConfig = function(cfg) {
-        dtPick.value = cfg.device_tracker || '';
-      };
-
-      dtPick.addEventListener('value-changed', () => setTimeout(() => {
-        const ev = new Event('config-changed', { bubbles: true, composed: true });
-        ev.detail = { config: el.value };
-        el.dispatchEvent(ev);
-      }, 0));
-
+      el.style.padding = '8px';
+      el.style.color = 'var(--secondary-text-color)';
+      el.innerHTML = '상호명이 있는 모든 device_tracker 엔티티를 자동으로 지도에 표시합니다.';
+      el.setConfig = function() {};
       Object.defineProperty(el, 'value', { get() {
-        return { type: 'custom:opinet-map-card', device_tracker: dtPick.value || undefined };
+        return { type: 'custom:opinet-map-card' };
       }});
       return el;
     }
