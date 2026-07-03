@@ -203,7 +203,8 @@ if (!customElements.get('opinet-map-card')) {
       }
       const mapId = 'omap-' + Date.now();
       this.innerHTML = '<div id="' + mapId + '" style="height:400px;"></div>';
-      loadLeaflet(() => {
+      // ponytail: setTimeout — innerHTML DOM settle before Leaflet callback
+      setTimeout(() => loadLeaflet(() => {
         const el = document.getElementById(mapId);
         if (!el) return;
         try {
@@ -233,7 +234,7 @@ if (!customElements.get('opinet-map-card')) {
         } catch(e) {
           el.innerHTML = '<div style="padding:16px;color:red;">지도 오류: ' + e.message + '</div>';
         }
-      });
+      }), 50);
     }
     getCardSize() { return 6; }
   }
