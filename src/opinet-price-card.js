@@ -160,10 +160,15 @@ if (!customElements.get('opinet-rank-card')) {
 }
 
 // ================================================================
-// Map Card — minimal: 1 device_tracker → 1 marker → focus
+// Map Card — vehicle-status-card Shadow DOM 패턴
 // ================================================================
 if (!customElements.get('opinet-map-card')) {
   class OpinetMapCard extends HTMLElement {
+    constructor() {
+      super();
+      this.attachShadow({ mode: 'open' });
+    }
+
     setConfig(c) { this._cfg = c; }
 
     set hass(h) {
@@ -187,9 +192,25 @@ if (!customElements.get('opinet-map-card')) {
       this.style.display = 'block';
       this.style.height = (this._cfg.height || 400) + 'px';
 
-      this.innerHTML = '<div id="omap" style="height:100%;width:100%;"></div>';
-      const c = this.querySelector('#omap');
+      const isDark = this._hass && this._hass.themes && this._hass.themes.darkMode;
+      const tileFilter = isDark
+        ? '--vic-map-tiles-filter:brightness(0.8) invert(0.9) contrast(2.1) brightness(2) opacity(0.27) grayscale(1)'
+        : '--vic-map-tiles-filter:none';
 
+      // vehicle-status-card: leaflet CSS + component styles IN shadow DOM
+      this.shadowRoot.innerHTML = `
+        <style>${leafletCSS}</style>
+        <style>
+          :host { display: block; width: 100%; height: 100%; }
+          .leaflet-container { background: transparent !important; }
+          .map-tiles { filter: var(--vic-map-tiles-filter, none); }
+          .leaflet-control-container { display: none; }
+          #omap { height: 100%; width: 100%; background: transparent !important; }
+        </style>
+        <div id="omap" style="${tileFilter}"></div>
+      `;
+
+      const c = this.shadowRoot.getElementById('omap');
       const zoom = this._cfg.zoom || 14;
       const map = L.map(c, {
         dragging: true,
@@ -198,6 +219,7 @@ if (!customElements.get('opinet-map-card')) {
       }).setView([this._lat, this._lon], zoom);
 
       L.tileLayer.provider('CartoDB.Positron', {
+        className: 'map-tiles',
         detectRetina: true,
         tileSize: L.Browser.retina ? 512 : 256,
         zoomOffset: L.Browser.retina ? -1 : 0,

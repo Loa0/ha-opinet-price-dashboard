@@ -11419,6 +11419,10 @@ svg.leaflet-image-layer.leaflet-interactive path {\r
     }
     if (!customElements.get("opinet-map-card")) {
       class OpinetMapCard extends HTMLElement {
+        constructor() {
+          super();
+          this.attachShadow({ mode: "open" });
+        }
         setConfig(c) {
           this._cfg = c;
         }
@@ -11443,8 +11447,20 @@ svg.leaflet-image-layer.leaflet-interactive path {\r
         _draw() {
           this.style.display = "block";
           this.style.height = (this._cfg.height || 400) + "px";
-          this.innerHTML = '<div id="omap" style="height:100%;width:100%;"></div>';
-          const c = this.querySelector("#omap");
+          const isDark = this._hass && this._hass.themes && this._hass.themes.darkMode;
+          const tileFilter = isDark ? "--vic-map-tiles-filter:brightness(0.8) invert(0.9) contrast(2.1) brightness(2) opacity(0.27) grayscale(1)" : "--vic-map-tiles-filter:none";
+          this.shadowRoot.innerHTML = `
+        <style>${leaflet_default}</style>
+        <style>
+          :host { display: block; width: 100%; height: 100%; }
+          .leaflet-container { background: transparent !important; }
+          .map-tiles { filter: var(--vic-map-tiles-filter, none); }
+          .leaflet-control-container { display: none; }
+          #omap { height: 100%; width: 100%; background: transparent !important; }
+        </style>
+        <div id="omap" style="${tileFilter}"></div>
+      `;
+          const c = this.shadowRoot.getElementById("omap");
           const zoom = this._cfg.zoom || 14;
           const map = import_leaflet.default.map(c, {
             dragging: true,
@@ -11452,6 +11468,7 @@ svg.leaflet-image-layer.leaflet-interactive path {\r
             scrollWheelZoom: true
           }).setView([this._lat, this._lon], zoom);
           import_leaflet.default.tileLayer.provider("CartoDB.Positron", {
+            className: "map-tiles",
             detectRetina: true,
             tileSize: import_leaflet.default.Browser.retina ? 512 : 256,
             zoomOffset: import_leaflet.default.Browser.retina ? -1 : 0,
