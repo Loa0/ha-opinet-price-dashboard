@@ -351,19 +351,66 @@ if (!customElements.get('opinet-map-card')) {
       el.style.flexDirection = 'column';
       el.style.gap = '8px';
 
-      const centerPick = document.createElement('ha-entity-picker');
-      centerPick.setAttribute('label', '사용자 위치 (포커싱)');
-      centerPick.style.display = 'block';
-      el.appendChild(centerPick);
+      // Use text inputs as fallback, upgrade to entity-picker when available
+      const mkInput = (label) => {
+        const inp = document.createElement('input');
+        inp.placeholder = label;
+        inp.style.cssText = 'width:100%;padding:8px;box-sizing:border-box;font-size:14px;border:1px solid var(--divider-color,#ccc);border-radius:4px;background:var(--card-background-color,#fff);color:var(--primary-text-color,#000)';
+        return inp;
+      };
 
-      const opinetPick = document.createElement('ha-entity-picker');
-      opinetPick.setAttribute('label', '오피넷 주유소');
-      opinetPick.style.display = 'block';
-      el.appendChild(opinetPick);
+      const centerInp = mkInput('사용자 위치 (entity_id)');
+      el.appendChild(centerInp);
+
+      const opinetInp = mkInput('오피넷 주유소 (entity_id)');
+      el.appendChild(opinetInp);
+
+      // Try to upgrade to entity-picker once defined
+      const upgrade = () => {
+        if (customElements.get('ha-entity-picker')) {
+          [ { inp: centerInp, label: '사용자 위치 (포커싱)', key: 'centerPick' },
+            { inp: opinetInp, label: '오피넷 주유소', key: 'opinetPick' }
+          ].forEach(({ inp, label, key }) => {
+            const pick = document.createElement('ha-entity-picker');
+            pick.setAttribute('label', label);
+            pick.style.display = 'block';
+            pick.value = inp.value;
+            pick.addEventListener('value-changed', () => {
+              inp.value = pick.value || '';
+              inp.dispatchEvent(new Event('input', { bubbles: true }));
+            });
+            inp.replaceWith(pick);
+            el[key] = pick;
+            inp.style.display = 'none';
+            // Copy current value
+            pick.value = inp.value;
+            // Set hass if available
+            if (el._hass) pick.hass = el._hass;
+          });
+        }
+      };
+      if (customElements.get('ha-entity-picker')) {
+        upgrade();
+      } else {
+        customElements.whenDefined('ha-entity-picker').then(upgrade);
+      }
+
+      // Accept hass from HA
+      Object.defineProperty(el, 'hass', {
+        set(h) {
+          el._hass = h;
+          if (el.centerPick) el.centerPick.hass = h;
+          if (el.opinetPick) el.opinetPick.hass = h;
+        }
+      });
 
       el.setConfig = function(cfg) {
-        centerPick.value = cfg.center_tracker || '';
-        opinetPick.value = cfg.opinet_tracker || '';
+        const cv = cfg.center_tracker || '';
+        const ov = cfg.opinet_tracker || '';
+        if (el.centerPick) el.centerPick.value = cv;
+        else centerInp.value = cv;
+        if (el.opinetPick) el.opinetPick.value = ov;
+        else opinetInp.value = ov;
       };
 
       const fire = () => setTimeout(() => {
@@ -371,18 +418,20 @@ if (!customElements.get('opinet-map-card')) {
         ev.detail = { config: el.value };
         el.dispatchEvent(ev);
       }, 0);
-      centerPick.addEventListener('value-changed', fire);
-      opinetPick.addEventListener('value-changed', fire);
+      centerInp.addEventListener('input', fire);
+      opinetInp.addEventListener('input', fire);
 
       Object.defineProperty(el, 'value', { get() {
         const v = { type: 'custom:opinet-map-card' };
-        if (centerPick.value) v.center_tracker = centerPick.value;
-        if (opinetPick.value) v.opinet_tracker = opinetPick.value;
+        const cv = (el.centerPick ? el.centerPick.value : centerInp.value) || '';
+        const ov = (el.opinetPick ? el.opinetPick.value : opinetInp.value) || '';
+        if (cv) v.center_tracker = cv;
+        if (ov) v.opinet_tracker = ov;
         return v;
       }});
       return el;
     }
-    static getStubConfig() { return {}; }
+    static getStubConfig() { return { type: 'custom:opinet-map-card' }; }
   }
   customElements.define('opinet-map-card', OpinetMapCard);
 }

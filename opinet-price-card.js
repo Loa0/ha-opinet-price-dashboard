@@ -11588,35 +11588,77 @@ svg.leaflet-image-layer.leaflet-interactive path {\r
           el.style.display = "flex";
           el.style.flexDirection = "column";
           el.style.gap = "8px";
-          const centerPick = document.createElement("ha-entity-picker");
-          centerPick.setAttribute("label", "\uC0AC\uC6A9\uC790 \uC704\uCE58 (\uD3EC\uCEE4\uC2F1)");
-          centerPick.style.display = "block";
-          el.appendChild(centerPick);
-          const opinetPick = document.createElement("ha-entity-picker");
-          opinetPick.setAttribute("label", "\uC624\uD53C\uB137 \uC8FC\uC720\uC18C");
-          opinetPick.style.display = "block";
-          el.appendChild(opinetPick);
+          const mkInput = (label) => {
+            const inp = document.createElement("input");
+            inp.placeholder = label;
+            inp.style.cssText = "width:100%;padding:8px;box-sizing:border-box;font-size:14px;border:1px solid var(--divider-color,#ccc);border-radius:4px;background:var(--card-background-color,#fff);color:var(--primary-text-color,#000)";
+            return inp;
+          };
+          const centerInp = mkInput("\uC0AC\uC6A9\uC790 \uC704\uCE58 (entity_id)");
+          el.appendChild(centerInp);
+          const opinetInp = mkInput("\uC624\uD53C\uB137 \uC8FC\uC720\uC18C (entity_id)");
+          el.appendChild(opinetInp);
+          const upgrade = () => {
+            if (customElements.get("ha-entity-picker")) {
+              [
+                { inp: centerInp, label: "\uC0AC\uC6A9\uC790 \uC704\uCE58 (\uD3EC\uCEE4\uC2F1)", key: "centerPick" },
+                { inp: opinetInp, label: "\uC624\uD53C\uB137 \uC8FC\uC720\uC18C", key: "opinetPick" }
+              ].forEach(({ inp, label, key }) => {
+                const pick = document.createElement("ha-entity-picker");
+                pick.setAttribute("label", label);
+                pick.style.display = "block";
+                pick.value = inp.value;
+                pick.addEventListener("value-changed", () => {
+                  inp.value = pick.value || "";
+                  inp.dispatchEvent(new Event("input", { bubbles: true }));
+                });
+                inp.replaceWith(pick);
+                el[key] = pick;
+                inp.style.display = "none";
+                pick.value = inp.value;
+                if (el._hass) pick.hass = el._hass;
+              });
+            }
+          };
+          if (customElements.get("ha-entity-picker")) {
+            upgrade();
+          } else {
+            customElements.whenDefined("ha-entity-picker").then(upgrade);
+          }
+          Object.defineProperty(el, "hass", {
+            set(h) {
+              el._hass = h;
+              if (el.centerPick) el.centerPick.hass = h;
+              if (el.opinetPick) el.opinetPick.hass = h;
+            }
+          });
           el.setConfig = function(cfg) {
-            centerPick.value = cfg.center_tracker || "";
-            opinetPick.value = cfg.opinet_tracker || "";
+            const cv = cfg.center_tracker || "";
+            const ov = cfg.opinet_tracker || "";
+            if (el.centerPick) el.centerPick.value = cv;
+            else centerInp.value = cv;
+            if (el.opinetPick) el.opinetPick.value = ov;
+            else opinetInp.value = ov;
           };
           const fire = () => setTimeout(() => {
             const ev = new Event("config-changed", { bubbles: true, composed: true });
             ev.detail = { config: el.value };
             el.dispatchEvent(ev);
           }, 0);
-          centerPick.addEventListener("value-changed", fire);
-          opinetPick.addEventListener("value-changed", fire);
+          centerInp.addEventListener("input", fire);
+          opinetInp.addEventListener("input", fire);
           Object.defineProperty(el, "value", { get() {
             const v = { type: "custom:opinet-map-card" };
-            if (centerPick.value) v.center_tracker = centerPick.value;
-            if (opinetPick.value) v.opinet_tracker = opinetPick.value;
+            const cv = (el.centerPick ? el.centerPick.value : centerInp.value) || "";
+            const ov = (el.opinetPick ? el.opinetPick.value : opinetInp.value) || "";
+            if (cv) v.center_tracker = cv;
+            if (ov) v.opinet_tracker = ov;
             return v;
           } });
           return el;
         }
         static getStubConfig() {
-          return {};
+          return { type: "custom:opinet-map-card" };
         }
       }
       customElements.define("opinet-map-card", OpinetMapCard);
