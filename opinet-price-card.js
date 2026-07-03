@@ -135,9 +135,8 @@ if (!customElements.get('opinet-rank-card')) {
       const usageSw = el.querySelector('ha-switch');
 
       // device picker
-      const picker = document.createElement('ha-entity-picker');
-      picker.setAttribute('domain-filter', 'device_tracker');
-      picker.setAttribute('label', '디바이스 (선택)');
+      const picker = document.createElement('ha-device-picker');
+      picker.setAttribute('label', '기기 선택');
       picker.style.display = 'block';
       picker.style.marginTop = '4px';
       el.appendChild(picker);
