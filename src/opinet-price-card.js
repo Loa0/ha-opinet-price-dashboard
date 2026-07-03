@@ -166,6 +166,17 @@ if (!customElements.get('opinet-map-card')) {
     setConfig(c) { this._cfg = { ...c }; this._destroy(); }
     set hass(h) { this._hass = h; if (this._cfg && !this._map) this._draw(); }
 
+    connectedCallback() {
+      // vehicle-status-card: register ResizeObserver early, before map init
+      this._ro = new ResizeObserver(() => {
+        if (this._container) this._fixSize();
+      });
+    }
+
+    _fixSize() {
+      if (this._map) this._map.invalidateSize(false);
+    }
+
     _draw() {
       try { this._drawImpl(); }
       catch(e) {
@@ -178,19 +189,19 @@ if (!customElements.get('opinet-map-card')) {
       this._destroy();
       this.innerHTML = '';
 
-      // vehicle-status-card style: no ha-card, direct div wrapper
+      // Fix1: set host element height so 100% chain resolves
+      this.style.display = 'block';
+      this.style.height = '400px';
+
       const isDark = this._hass && this._hass.themes && this._hass.themes.darkMode;
       const card = document.createElement('div');
-      card.style.cssText = 'background:var(--ha-card-background,var(--card-background-color,#fff));border-radius:var(--ha-card-border-radius,12px);box-shadow:var(--ha-card-box-shadow,0 1px 3px rgba(0,0,0,.12));overflow:hidden;width:100%;height:400px;';
+      card.style.cssText = 'background:var(--ha-card-background,var(--card-background-color,#fff));border-radius:var(--ha-card-border-radius,12px);box-shadow:var(--ha-card-box-shadow,0 1px 3px rgba(0,0,0,.12));overflow:hidden;width:100%;height:100%;';
 
-      // wrapper: position relative (vehicle-status-card pattern)
       const wrapper = document.createElement('div');
       wrapper.style.cssText = 'position:relative;width:100%;height:100%;';
 
-      // map container
       const container = document.createElement('div');
       container.style.cssText = 'height:100%;width:100%;background:transparent!important;';
-      // Dark mode tile filter (vehicle-status-card pattern)
       if (isDark) {
         container.style.filter = 'brightness(0.8) invert(0.9) contrast(2.1) brightness(2) opacity(0.27) grayscale(1)';
       }
@@ -199,9 +210,17 @@ if (!customElements.get('opinet-map-card')) {
       card.appendChild(wrapper);
       this.appendChild(card);
       this._container = container;
-      this._cardEl = card;
 
-      // Style injection for .leaflet-container
+      // Fix2: register ResizeObserver on container now that it exists
+      if (this._ro) {
+        this._ro.disconnect();
+        this._ro = new ResizeObserver(() => this._fixSize());
+      } else {
+        this._ro = new ResizeObserver(() => this._fixSize());
+      }
+      this._ro.observe(container);
+
+      // Fix3: .leaflet-container transparent
       if (!this.querySelector('.omap-style')) {
         const st = document.createElement('style');
         st.className = 'omap-style';
@@ -220,9 +239,8 @@ if (!customElements.get('opinet-map-card')) {
         }).addTo(map);
         this._map = map;
         this._addMarkers();
-        if (this._ro) this._ro.disconnect();
-        this._ro = new ResizeObserver(() => { if (this._map) this._map.invalidateSize({ debounceMoveend: true }); });
-        this._ro.observe(container);
+        // Fix2: invalidateSize(false) — no debounce
+        setTimeout(() => map.invalidateSize(false), 100);
       };
       setTimeout(initMap, 50);
     }

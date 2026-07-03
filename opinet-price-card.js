@@ -10407,6 +10407,14 @@ svg.leaflet-image-layer.leaflet-interactive path {\r
           this._hass = h;
           if (this._cfg && !this._map) this._draw();
         }
+        connectedCallback() {
+          this._ro = new ResizeObserver(() => {
+            if (this._container) this._fixSize();
+          });
+        }
+        _fixSize() {
+          if (this._map) this._map.invalidateSize(false);
+        }
         _draw() {
           try {
             this._drawImpl();
@@ -10418,9 +10426,11 @@ svg.leaflet-image-layer.leaflet-interactive path {\r
         _drawImpl() {
           this._destroy();
           this.innerHTML = "";
+          this.style.display = "block";
+          this.style.height = "400px";
           const isDark = this._hass && this._hass.themes && this._hass.themes.darkMode;
           const card = document.createElement("div");
-          card.style.cssText = "background:var(--ha-card-background,var(--card-background-color,#fff));border-radius:var(--ha-card-border-radius,12px);box-shadow:var(--ha-card-box-shadow,0 1px 3px rgba(0,0,0,.12));overflow:hidden;width:100%;height:400px;";
+          card.style.cssText = "background:var(--ha-card-background,var(--card-background-color,#fff));border-radius:var(--ha-card-border-radius,12px);box-shadow:var(--ha-card-box-shadow,0 1px 3px rgba(0,0,0,.12));overflow:hidden;width:100%;height:100%;";
           const wrapper = document.createElement("div");
           wrapper.style.cssText = "position:relative;width:100%;height:100%;";
           const container = document.createElement("div");
@@ -10432,7 +10442,13 @@ svg.leaflet-image-layer.leaflet-interactive path {\r
           card.appendChild(wrapper);
           this.appendChild(card);
           this._container = container;
-          this._cardEl = card;
+          if (this._ro) {
+            this._ro.disconnect();
+            this._ro = new ResizeObserver(() => this._fixSize());
+          } else {
+            this._ro = new ResizeObserver(() => this._fixSize());
+          }
+          this._ro.observe(container);
           if (!this.querySelector(".omap-style")) {
             const st = document.createElement("style");
             st.className = "omap-style";
@@ -10456,11 +10472,7 @@ svg.leaflet-image-layer.leaflet-interactive path {\r
             }).addTo(map);
             this._map = map;
             this._addMarkers();
-            if (this._ro) this._ro.disconnect();
-            this._ro = new ResizeObserver(() => {
-              if (this._map) this._map.invalidateSize({ debounceMoveend: true });
-            });
-            this._ro.observe(container);
+            setTimeout(() => map.invalidateSize(false), 100);
           };
           setTimeout(initMap, 50);
         }
