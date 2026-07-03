@@ -240,6 +240,7 @@ if (!customElements.get('opinet-map-card')) {
           zoomControl: false,
           scrollWheelZoom: true,
           zoom: 14,
+          minZoom: 7,
         }).setView([36.5, 127.5], 14);
         // vehicle-status-card: _createTileLayer
         L.tileLayer.provider('CartoDB.Positron', {
@@ -289,7 +290,7 @@ if (!customElements.get('opinet-map-card')) {
         bounds.push([lat, lon]);
       }
       if (centerLat != null) this._map.setView([centerLat, centerLon], 14);
-      else if (bounds.length) this._map.fitBounds(bounds, { padding: [20,20] });
+      else if (bounds.length) this._map.fitBounds(bounds, { padding: [20,20], maxZoom: 12 });
     }
 
     _findTrackers() {

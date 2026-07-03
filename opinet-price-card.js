@@ -11486,7 +11486,8 @@ svg.leaflet-image-layer.leaflet-interactive path {\r
               dragging: true,
               zoomControl: false,
               scrollWheelZoom: true,
-              zoom: 14
+              zoom: 14,
+              minZoom: 7
             }).setView([36.5, 127.5], 14);
             import_leaflet.default.tileLayer.provider("CartoDB.Positron", {
               className: "map-tiles",
@@ -11535,7 +11536,7 @@ svg.leaflet-image-layer.leaflet-interactive path {\r
             bounds.push([lat, lon]);
           }
           if (centerLat != null) this._map.setView([centerLat, centerLon], 14);
-          else if (bounds.length) this._map.fitBounds(bounds, { padding: [20, 20] });
+          else if (bounds.length) this._map.fitBounds(bounds, { padding: [20, 20], maxZoom: 12 });
         }
         _findTrackers() {
           const list = [];
