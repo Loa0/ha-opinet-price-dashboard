@@ -1,4 +1,5 @@
 import L from 'leaflet';
+import 'leaflet-providers';
 import leafletCSS from 'leaflet/dist/leaflet.css';
 
 (function(){
@@ -189,7 +190,7 @@ if (!customElements.get('opinet-map-card')) {
       this._destroy();
       this.innerHTML = '';
 
-      // Fix1: set host element height so 100% chain resolves
+      // vehicle-status-card: host height + display
       this.style.display = 'block';
       this.style.height = '400px';
 
@@ -197,13 +198,18 @@ if (!customElements.get('opinet-map-card')) {
       const card = document.createElement('div');
       card.style.cssText = 'background:var(--ha-card-background,var(--card-background-color,#fff));border-radius:var(--ha-card-border-radius,12px);box-shadow:var(--ha-card-box-shadow,0 1px 3px rgba(0,0,0,.12));overflow:hidden;width:100%;height:100%;';
 
+      // vehicle-status-card: .map-wrapper
       const wrapper = document.createElement('div');
-      wrapper.style.cssText = 'position:relative;width:100%;height:100%;';
+      wrapper.className = 'map-wrapper';
+      wrapper.style.cssText = 'position:relative;width:100%;height:100%;display:flex;align-items:center;justify-content:center;';
 
+      // map container
       const container = document.createElement('div');
       container.style.cssText = 'height:100%;width:100%;background:transparent!important;';
+
+      // vehicle-status-card: dark mode via CSS variable on tiles, not container filter
       if (isDark) {
-        container.style.filter = 'brightness(0.8) invert(0.9) contrast(2.1) brightness(2) opacity(0.27) grayscale(1)';
+        wrapper.style.setProperty('--vic-map-tiles-filter', 'brightness(0.8) invert(0.9) contrast(2.1) brightness(2) opacity(0.27) grayscale(1)');
       }
 
       wrapper.appendChild(container);
@@ -211,42 +217,37 @@ if (!customElements.get('opinet-map-card')) {
       this.appendChild(card);
       this._container = container;
 
-      // Fix2: register ResizeObserver on container now that it exists
-      if (this._ro) {
-        this._ro.disconnect();
-        this._ro = new ResizeObserver(() => this._fixSize());
-      } else {
-        this._ro = new ResizeObserver(() => this._fixSize());
-      }
-      this._ro.observe(container);
-
-      // Fix3: .leaflet-container transparent
+      // Style injection (vehicle-status-card CSS)
       if (!this.querySelector('.omap-style')) {
         const st = document.createElement('style');
         st.className = 'omap-style';
-        st.textContent = '.leaflet-container{background:transparent!important}';
+        st.textContent = '.leaflet-container{background:transparent!important}.map-tiles{filter:var(--vic-map-tiles-filter,none)}.leaflet-control-container{display:none}';
         this.appendChild(st);
       }
+
+      // ResizeObserver on container
+      if (this._ro) this._ro.disconnect();
+      this._ro = new ResizeObserver(() => this._fixSize());
+      this._ro.observe(container);
 
       const initMap = () => {
         if (!container.isConnected || !container.offsetParent) { setTimeout(initMap, 100); return; }
         if (this._map) { this._map.remove(); this._map = null; }
         const retina = L.Browser.retina;
+        // vehicle-status-card: mapOptions
         const map = L.map(container, {
-          attributionControl: false,
+          dragging: true,
           zoomControl: false,
-          fadeAnimation: true,
-          zoomAnimation: true,
+          scrollWheelZoom: true,
+          zoom: 14,
         }).setView([36.5, 127.5], 14);
-        L.tileLayer('https://basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}' + (retina ? '@2x.png' : '.png'), {
-          attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a>, &copy; <a href="https://carto.com/attributions">CARTO</a>',
-          subdomains: 'abcd',
-          maxZoom: 20,
+        // vehicle-status-card: _createTileLayer
+        L.tileLayer.provider('CartoDB.Positron', {
+          className: 'map-tiles',
           detectRetina: true,
           tileSize: retina ? 512 : 256,
           zoomOffset: retina ? -1 : 0,
           transparent: true,
-          className: 'map-tiles',
         }).addTo(map);
         this._map = map;
         this._addMarkers();
