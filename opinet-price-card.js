@@ -193,13 +193,32 @@ if (!customElements.get('opinet-rank-card')) {
 // ================================================================
 if (!customElements.get('opinet-map-card')) {
   class OpinetMapCard extends HTMLElement {
-    setConfig(c) { this._cfg = { ...c }; delete this._mapReady; }
-    set hass(h) { this._hass = h; if (this._cfg) this._draw(); }
-    _draw() {
-      // ponytail: init-once like ha-map-card's firstUpdated — skip map recreation
-      if (this._mapReady) return;
+    // ponytail: ha-map-card firstUpdated pattern — init-once with DOM-ready retry
+    setConfig(c) { this._cfg = { ...c }; delete this._map; }
+    set hass(h) { this._hass = h; if (this._cfg) this._initMap(); }
+    _initMap() {
+      if (this._map) return;
+      // render container once
+      if (!this.querySelector('.omc')) {
+        this.innerHTML = '<ha-card><div class="omc" style="height:400px;"></div></ha-card>';
+      }
+      // ponytail: DOM-ready retry (ha-map-card uses offsetParent check)
+      const container = this.querySelector('.omc');
+      this._tries = (this._tries || 0) + 1;
+      if (!container || !container.offsetParent) {
+        if (this._tries < 50) { setTimeout(() => this._initMap(), 100); }
+        return;
+      }
+      // ponytail: Leaflet ready check + init
+      if (typeof L === 'undefined') {
+        if (!this._leafLoading) { this._leafLoading = true; loadLeaflet(() => this._initMap()); }
+        setTimeout(() => this._initMap(), 200);
+        return;
+      }
+      this._map = L.map(container, { attributionControl: false }).setView([36.5, 127.5], 7);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 18 }).addTo(this._map);
+      // markers
       const trackers = findTrackers(this._hass);
-      // ponytail: filter + center, don't touch render loop
       const filtered = (!this._cfg.devices || !this._cfg.devices.length)
         ? trackers
         : trackers.filter(t => (new Set(this._cfg.devices)).has(t.eid));
@@ -210,45 +229,26 @@ if (!customElements.get('opinet-map-card')) {
           centerLat = cs.attributes.latitude; centerLon = cs.attributes.longitude;
         }
       }
-      if (!filtered.length) {
-        this.innerHTML = '<ha-card><div style="padding:16px;text-align:center;color:var(--secondary-text-color)">주유소 위치 정보가 없습니다</div></ha-card>';
-        return;
+      const bounds = [];
+      for (const t of filtered) {
+        const lat = t.attributes ? t.attributes.latitude : t.latitude;
+        const lon = t.attributes ? t.attributes.longitude : t.longitude;
+        if (lat == null || lon == null) continue;
+        const price = t['가격'] || (t.attributes && t.attributes['가격']);
+        const label = price ? Number(price).toLocaleString() + '원' : '';
+        const name = t['상호명'] || (t.attributes && t.attributes['상호명']) || '';
+        const addr = t['주소'] || (t.attributes && t.attributes['주소']) || '';
+        const icon = L.divIcon({
+          className: 'omarker',
+          html: '<div style="background:#1976d2;color:#fff;padding:2px 6px;border-radius:4px;font-size:11px;font-weight:600;white-space:nowrap;box-shadow:0 1px 3px rgba(0,0,0,.3);transform:translate(-50%,-100%);margin-top:-6px;">' + label + '</div>',
+          iconSize: [0,0], iconAnchor: [0,0]
+        });
+        L.marker([lat, lon], { icon }).addTo(this._map)
+          .bindPopup('<b>' + name + '</b><br>' + label + '<br>' + addr);
+        bounds.push([lat, lon]);
       }
-      const mapId = 'omap-' + Date.now();
-      this.innerHTML = '<ha-card><div id="' + mapId + '" style="height:400px;"></div></ha-card>';
-      setTimeout(() => loadLeaflet(() => {
-        const el = document.getElementById(mapId);
-        if (!el) return;
-        try {
-          if (this._map) { this._map.remove(); }
-          this._map = L.map(mapId, { attributionControl: false }).setView([36.5, 127.5], 7);
-          L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 18 }).addTo(this._map);
-          const bounds = [];
-          for (const t of filtered) {
-            const lat = t.attributes ? t.attributes.latitude : t.latitude;
-            const lon = t.attributes ? t.attributes.longitude : t.longitude;
-            if (lat == null || lon == null) continue;
-            const price = t['가격'] || (t.attributes && t.attributes['가격']);
-            const label = price ? Number(price).toLocaleString() + '원' : '';
-            const name = t['상호명'] || (t.attributes && t.attributes['상호명']) || '';
-            const addr = t['주소'] || (t.attributes && t.attributes['주소']) || '';
-            const icon = L.divIcon({
-              className: 'omarker',
-              html: '<div style="background:#1976d2;color:#fff;padding:2px 6px;border-radius:4px;font-size:11px;font-weight:600;white-space:nowrap;box-shadow:0 1px 3px rgba(0,0,0,.3);transform:translate(-50%,-100%);margin-top:-6px;">' + label + '</div>',
-              iconSize: [0,0], iconAnchor: [0,0]
-            });
-            L.marker([lat, lon], { icon }).addTo(this._map)
-              .bindPopup('<b>' + name + '</b><br>' + label + '<br>' + addr);
-            bounds.push([lat, lon]);
-          }
-          if (centerLat != null) this._map.setView([centerLat, centerLon], 14);
-          else if (bounds.length) this._map.fitBounds(bounds, { padding: [20,20] });
-          else this._map.setView([36.5, 127.5], 7);
-          this._mapReady = true;
-        } catch(e) {
-          el.innerHTML = '<div style="padding:16px;color:red;">지도 오류: ' + e.message + '</div>';
-        }
-      }), 50);
+      if (centerLat != null) this._map.setView([centerLat, centerLon], 14);
+      else if (bounds.length) this._map.fitBounds(bounds, { padding: [20,20] });
     }
     getCardSize() { return 6; }
     // ponytail: copy-paste-adapt from rank card editor pattern
