@@ -169,7 +169,6 @@ class OpinetMapCard extends HTMLElement {
     this._config = null;
     this._map = null;
     this._markers = [];
-    this._containerId = null;
   }
 
   setConfig(config) {
@@ -184,6 +183,14 @@ class OpinetMapCard extends HTMLElement {
   }
 
   _render() {
+    try {
+      this._renderImpl();
+    } catch (e) {
+      this.innerHTML = `<ha-card><div style="padding:16px;color:red;">오류: ${e.message}</div></ha-card>`;
+    }
+  }
+
+  _renderImpl() {
     const trackers = _opinetFindDeviceTrackers(this._hass);
 
     if (trackers.length === 0) {
@@ -194,21 +201,27 @@ class OpinetMapCard extends HTMLElement {
       return;
     }
 
-    if (!this._containerId) {
-      this._containerId = `opinet-map-${Math.random().toString(36).slice(2)}`;
-    }
+    const mapId = `opinet-map-${Date.now()}`;
+    this.innerHTML = `<div id="${mapId}" style="height:400px;"></div>`;
 
-    this.innerHTML = `<div id="${this._containerId}" style="height:400px;"></div>`;
-
-    const container = document.getElementById(this._containerId);
-    if (!container) return;
-
-    const initMap = () => {
-      if (typeof L === 'undefined') { setTimeout(initMap, 100); return; }
-      if (!container.offsetParent) { setTimeout(initMap, 200); return; }
+    // 지연 초기화 (DOM 반영 대기)
+    let attempts = 0;
+    const maxAttempts = 50; // 5초 제한
+    const tryInit = () => {
+      attempts++;
+      const container = document.getElementById(mapId);
+      if (!container || !container.offsetParent) {
+        if (attempts < maxAttempts) { setTimeout(tryInit, 100); }
+        return;
+      }
+      if (typeof L === 'undefined') {
+        if (attempts < maxAttempts) { setTimeout(tryInit, 100); }
+        else { this.innerHTML = '<ha-card><div style="padding:16px;">지도 로드 실패</div></ha-card>'; }
+        return;
+      }
 
       if (this._map) { this._map.remove(); this._markers = []; }
-      this._map = L.map(this._containerId, { attributionControl: false }).setView([36.5, 127.5], 7);
+      this._map = L.map(mapId, { attributionControl: false }).setView([36.5, 127.5], 7);
 
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         maxZoom: 18,
@@ -220,9 +233,10 @@ class OpinetMapCard extends HTMLElement {
         const lon = t.attrs.longitude;
         if (lat == null || lon == null) continue;
 
-        const label = t.attrs.가격표시 || (t.attrs.가격 ? `${Number(t.attrs.가격).toLocaleString()}원` : '');
-        const name = t.attrs.상호명 || t.state.attributes.friendly_name || '';
-        const addr = t.attrs.주소 || '';
+        const price = t.attrs['가격'];
+        const label = price ? `${Number(price).toLocaleString()}원` : '';
+        const name = t.attrs['상호명'] || t.state.attributes.friendly_name || '';
+        const addr = t.attrs['주소'] || '';
 
         const icon = L.divIcon({
           className: 'opinet-map-marker',
@@ -244,7 +258,7 @@ class OpinetMapCard extends HTMLElement {
       }
     };
 
-    initMap();
+    setTimeout(tryInit, 50);
   }
 
   getCardSize() { return 6; }
