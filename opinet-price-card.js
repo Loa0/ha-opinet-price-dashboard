@@ -25,23 +25,22 @@ function loadLeaflet(cb) {
 }
 
 // ===== helpers =====
-function findStations(hass, deviceArg) {
+function findStations(hass, deviceArg, includeFav) {
   // resolve device_id from entity_id or direct device_id
   let deviceId = null;
   if (deviceArg && hass.entities) {
     const ent = hass.entities[deviceArg];
-    if (ent) {
-      deviceId = ent.device_id || null;
-    } else {
-      // might already be a device_id
-      deviceId = deviceArg;
-    }
+    deviceId = ent ? (ent.device_id || null) : deviceArg;
   }
   const list = [];
+  const favs = [];
   for (const [eid, s] of Object.entries(hass.states)) {
     if (!eid.startsWith('sensor.')) continue;
-    if (s.attributes['순위'] == null) continue;
-    // device filter
+    if (s.attributes['순위'] == null) {
+      // ponytail: favorites detected by entity_id containing 'jeulgyeocajgi'
+      if (includeFav && /jeulgyeocajgi/.test(eid)) favs.push({ eid, ...s.attributes });
+      continue;
+    }
     if (deviceId && hass.entities) {
       const ent = hass.entities[eid];
       if (!ent || ent.device_id !== deviceId) continue;
@@ -49,7 +48,8 @@ function findStations(hass, deviceArg) {
     list.push({ eid, ...s.attributes });
   }
   list.sort((a, b) => (a['순위']||99) - (b['순위']||99));
-  return list;
+  favs.sort((a, b) => (a.eid||'').localeCompare(b.eid));
+  return { stations: list, favorites: favs };
 }
 
 function findRefreshButton(hass) {
@@ -80,18 +80,26 @@ function findTrackers(hass) {
 // ================================================================
 if (!customElements.get('opinet-rank-card')) {
   class OpinetRankCard extends HTMLElement {
-    setConfig(c) { this._cfg = { title: '⛽ 오피넷 주유소', show_usage: true, ...c }; }
+    setConfig(c) { this._cfg = { title: '⛽ 오피넷 주유소', show_usage: true, show_fav: false, ...c }; }
     set hass(h) { this._hass = h; if (this._cfg) this._draw(); }
     _draw() {
-      const stations = findStations(this._hass, this._cfg.device);
+      const { stations, favorites } = findStations(this._hass, this._cfg.device, this._cfg.show_fav);
       const refreshBtn = findRefreshButton(this._hass);
       const usageEid = findUsage(this._hass);
       let rows = '';
+      // ponytail: favorites at top with star indicator, no 순위 column
+      if (favorites.length) {
+        for (const s of favorites) {
+          const p = s['가격'] ? Number(s['가격']).toLocaleString() : '-';
+          const d = s['거리'] || '-';
+          rows += `<tr class="ow ofav" data-eid="${s.eid}"><td class="or1">★</td><td class="or2">${s['주유소명']||'-'}</td><td class="or3">${p}원</td><td class="or4">${d}</td></tr>`;
+        }
+      }
       if (stations.length) {
         for (const s of stations) {
           const p = s['가격'] ? Number(s['가격']).toLocaleString() : '-';
           const d = s['거리'] || '-';
-          rows += `<tr class="or ow" data-eid="${s.eid}"><td class="or1">${s['순위']}위</td><td class="or2">${s['주유소명']||'-'}</td><td class="or3">${p}원</td><td class="or4">${d}</td></tr>`;
+          rows += `<tr class="ow" data-eid="${s.eid}"><td class="or1">${s['순위']}위</td><td class="or2">${s['주유소명']||'-'}</td><td class="or3">${p}원</td><td class="or4">${d}</td></tr>`;
         }
       } else {
         rows = '<tr><td colspan="4" style="text-align:center;padding:16px;">데이터 없음</td></tr>';
@@ -127,58 +135,42 @@ if (!customElements.get('opinet-rank-card')) {
       el.style.gap = '8px';
       el.innerHTML = `
         <paper-input label="제목" value="⛽ 오피넷 주유소"></paper-input>
+        <paper-input label="Device ID (선택사항)" placeholder="HA 기기 페이지 URL에서 복사"></paper-input>
         <ha-formfield label="API 사용량 표시">
           <ha-switch checked></ha-switch>
         </ha-formfield>
+        <ha-formfield label="즐겨찾기 표시">
+          <ha-switch></ha-switch>
+        </ha-formfield>
       `;
       const titleInp = el.querySelectorAll('paper-input')[0];
-      const usageSw = el.querySelector('ha-switch');
-
-      // device picker — needs manual hass injection (ha-device-picker uses @property, not @consume)
-      const picker = document.createElement('ha-device-picker');
-      picker.setAttribute('label', '기기 선택');
-      picker.style.display = 'block';
-      picker.style.marginTop = '4px';
-      el.appendChild(picker);
-
-      // inject hass once picker is in DOM
-      const injectHass = () => {
-        const ha = document.querySelector('home-assistant');
-        if (ha && ha.hass) {
-          picker.hass = ha.hass;
-          if (picker.requestUpdate) picker.requestUpdate();
-          return true;
-        }
-        return false;
-      };
-      if (!injectHass()) {
-        new MutationObserver(() => { injectHass(); }).observe(document.body, { childList: true, subtree: true });
-      }
+      const devInp = el.querySelectorAll('paper-input')[1];
+      const usageSw = el.querySelectorAll('ha-switch')[0];
+      const favSw = el.querySelectorAll('ha-switch')[1];
 
       el.setConfig = function(cfg) {
         titleInp.value = cfg.title || '⛽ 오피넷 주유소';
+        devInp.value = cfg.device || '';
         usageSw.checked = cfg.show_usage !== false;
-        // delay — picker might not have hass yet
-        const setDev = () => { picker.value = cfg.device || ''; };
-        if (picker.hass) setDev();
-        else setTimeout(setDev, 300);
+        favSw.checked = cfg.show_fav === true;
       };
 
       const fireChange = () => el.dispatchEvent(new Event('config-changed', { bubbles: true, composed: true }));
       titleInp.addEventListener('value-changed', fireChange);
+      devInp.addEventListener('value-changed', fireChange);
       usageSw.addEventListener('change', fireChange);
-      picker.addEventListener('value-changed', fireChange);
+      favSw.addEventListener('change', fireChange);
 
       Object.defineProperty(el, 'value', { get() {
-        const v = { title: titleInp.value, show_usage: usageSw.checked };
-        if (picker.value) v.device = picker.value;
+        const v = { title: titleInp.value, show_usage: usageSw.checked, show_fav: favSw.checked };
+        if (devInp.value) v.device = devInp.value;
         return v;
       }});
 
       return el;
     }
     static getStubConfig() {
-      return { title: '⛽ 오피넷 주유소', show_usage: true };
+      return { title: '⛽ 오피넷 주유소', show_usage: true, show_fav: false };
     }
   }
   customElements.define('opinet-rank-card', OpinetRankCard);
