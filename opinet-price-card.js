@@ -148,20 +148,15 @@ if (!customElements.get('opinet-rank-card')) {
       const usageSw = el.querySelectorAll('ha-switch')[0];
       const favSw = el.querySelectorAll('ha-switch')[1];
 
-      // ponytail: setConfig sets values → triggers value-changed → must suppress until init done
-      let _init = true;
       el.setConfig = function(cfg) {
-        _init = true;
         titleInp.value = cfg.title || '⛽ 오피넷 주유소';
         devInp.value = cfg.device || '';
         usageSw.checked = cfg.show_usage !== false;
         favSw.checked = cfg.show_fav === true;
-        _init = false;
       };
 
-      // ponytail: setTimeout lets DOM settle before reading checked/value
+      // ponytail: setTimeout — ha-switch click fires before checked updates
       const fireChange = () => {
-        if (_init) return;
         setTimeout(() => {
           const ev = new Event('config-changed', { bubbles: true, composed: true });
           ev.detail = { config: el.value };
