@@ -11425,15 +11425,14 @@ svg.leaflet-image-layer.leaflet-interactive path {\r
         }
         set hass(h) {
           this._hass = h;
-          if (this._cfg && !this._map) this._draw();
+          if (this._cfg && this.isConnected && !this._map) this._draw();
         }
         connectedCallback() {
-          this._ro = new ResizeObserver(() => {
-            if (this._container) this._fixSize();
-          });
+          this._ro = new ResizeObserver(() => this._fixSize());
+          if (this._cfg && this._hass && !this._map) this._draw();
         }
         _fixSize() {
-          if (this._map) this._map.invalidateSize(false);
+          if (this._container && this._map) this._map.invalidateSize(false);
         }
         _draw() {
           try {
@@ -11445,62 +11444,48 @@ svg.leaflet-image-layer.leaflet-interactive path {\r
         }
         _drawImpl() {
           this._destroy();
-          this.innerHTML = "";
           this.style.display = "block";
-          this.style.height = "400px";
+          this.style.setProperty("height", "400px", "important");
           const isDark = this._hass && this._hass.themes && this._hass.themes.darkMode;
-          const card = document.createElement("div");
-          card.style.cssText = "background:var(--ha-card-background,var(--card-background-color,#fff));border-radius:var(--ha-card-border-radius,12px);box-shadow:var(--ha-card-box-shadow,0 1px 3px rgba(0,0,0,.12));overflow:hidden;width:100%;height:100%;";
-          const wrapper = document.createElement("div");
-          wrapper.className = "map-wrapper";
-          wrapper.style.cssText = "position:relative;width:100%;height:100%;display:flex;align-items:center;justify-content:center;";
-          const container = document.createElement("div");
-          container.style.cssText = "height:100%;width:100%;background:transparent!important;";
-          if (isDark) {
-            wrapper.style.setProperty("--vic-map-tiles-filter", "brightness(0.8) invert(0.9) contrast(2.1) brightness(2) opacity(0.27) grayscale(1)");
-          }
-          wrapper.appendChild(container);
-          card.appendChild(wrapper);
-          this.appendChild(card);
+          const darkVar = isDark ? "--vic-map-tiles-filter:brightness(0.8) invert(0.9) contrast(2.1) brightness(2) opacity(0.27) grayscale(1);" : "";
+          this.innerHTML = `<div class="omap-card" style="background:var(--ha-card-background,var(--card-background-color,#fff));border-radius:var(--ha-card-border-radius,12px);box-shadow:var(--ha-card-box-shadow,0 1px 3px rgba(0,0,0,.12));overflow:hidden;width:100%;height:100%;">
+        <div class="map-wrapper" style="position:relative;width:100%;height:100%;display:flex;align-items:center;justify-content:center;${darkVar}">
+          <div class="omap-container" style="height:100%;width:100%;background:transparent!important;"></div>
+        </div>
+      </div>
+      <style class="omap-style">.leaflet-container{background:transparent!important}.map-tiles{filter:var(--vic-map-tiles-filter,none)}.leaflet-control-container{display:none}</style>`;
+          const container = this.querySelector(".omap-container");
           this._container = container;
-          if (!this.querySelector(".omap-style")) {
-            const st = document.createElement("style");
-            st.className = "omap-style";
-            st.textContent = ".leaflet-container{background:transparent!important}.map-tiles{filter:var(--vic-map-tiles-filter,none)}.leaflet-control-container{display:none}";
-            this.appendChild(st);
-          }
           if (this._ro) this._ro.disconnect();
           this._ro = new ResizeObserver(() => this._fixSize());
           this._ro.observe(container);
-          const initMap = () => {
-            if (!container.isConnected || !container.offsetParent) {
-              setTimeout(initMap, 100);
-              return;
-            }
-            if (this._map) {
-              this._map.remove();
-              this._map = null;
-            }
-            const retina = import_leaflet.default.Browser.retina;
-            const map = import_leaflet.default.map(container, {
-              dragging: true,
-              zoomControl: false,
-              scrollWheelZoom: true,
-              zoom: 14,
-              minZoom: 7
-            }).setView([36.5, 127.5], 14);
-            import_leaflet.default.tileLayer.provider("CartoDB.Positron", {
-              className: "map-tiles",
-              detectRetina: true,
-              tileSize: retina ? 512 : 256,
-              zoomOffset: retina ? -1 : 0,
-              transparent: true
-            }).addTo(map);
-            this._map = map;
-            this._addMarkers();
-            setTimeout(() => map.invalidateSize(false), 100);
-          };
-          setTimeout(initMap, 50);
+          requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+              if (!container.isConnected || !container.offsetParent) return;
+              if (this._map) {
+                this._map.remove();
+                this._map = null;
+              }
+              const retina = import_leaflet.default.Browser.retina;
+              const map = import_leaflet.default.map(container, {
+                dragging: true,
+                zoomControl: false,
+                scrollWheelZoom: true,
+                zoom: 14,
+                minZoom: 7
+              }).setView([36.5, 127.5], 14);
+              import_leaflet.default.tileLayer.provider("CartoDB.Positron", {
+                className: "map-tiles",
+                detectRetina: true,
+                tileSize: retina ? 512 : 256,
+                zoomOffset: retina ? -1 : 0,
+                transparent: true
+              }).addTo(map);
+              this._map = map;
+              this._addMarkers();
+              setTimeout(() => map.invalidateSize(false), 200);
+            });
+          });
         }
         _addMarkers() {
           if (!this._map) return;
