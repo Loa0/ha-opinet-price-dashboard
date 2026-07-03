@@ -202,13 +202,21 @@ if (!customElements.get('opinet-map-card')) {
     _drawImpl() {
       this._destroy();
       this.innerHTML = '';
-      // 카드 스타일 div (ha-card shadow DOM 회피)
-      const card = document.createElement('div');
-      card.style.cssText = 'background:var(--ha-card-background,var(--card-background-color,#fff));border-radius:var(--ha-card-border-radius,12px);box-shadow:var(--ha-card-box-shadow,0 1px 3px rgba(0,0,0,.12));overflow:hidden;';
-      // Leaflet container
+
+      // ha-card wrapper (HA 공식 패턴)
+      const card = document.createElement('ha-card');
+      card.style.cssText = 'overflow:hidden;width:100%;height:400px;display:flex;flex-direction:column;';
+
+      // #root — position relative wrapper
+      const root = document.createElement('div');
+      root.style.cssText = 'position:relative;height:100%;flex:1;';
+
+      // Leaflet container — position absolute
       const container = document.createElement('div');
-      container.style.cssText = 'height:400px;width:100%;';
-      card.appendChild(container);
+      container.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;border:none;background:inherit;z-index:0;';
+
+      root.appendChild(container);
+      card.appendChild(root);
       this.appendChild(card);
       this._container = container;
 
@@ -222,14 +230,15 @@ if (!customElements.get('opinet-map-card')) {
         const doMap = () => {
           if (this._map) { this._map.remove(); this._map = null; }
           const map = L.map(container, { attributionControl: false }).setView([36.5, 127.5], 14);
-          L.tileLayer('https://basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}' + (L.Browser.retina ? '@2x' : '') + '.png', {
+          L.tileLayer('https://basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}' + (L.Browser.retina ? '@2x.png' : '.png'), {
             attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a>, &copy; <a href="https://carto.com/attributions">CARTO</a>',
+            subdomains: 'abcd',
             maxZoom: 20,
           }).addTo(map);
           this._map = map;
           this._addMarkers();
           if (this._ro) this._ro.disconnect();
-          this._ro = new ResizeObserver(() => { if (this._map) this._map.invalidateSize(); });
+          this._ro = new ResizeObserver(() => { if (this._map) this._map.invalidateSize({ debounceMoveend: true }); });
           this._ro.observe(container);
         };
 
