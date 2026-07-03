@@ -11370,43 +11370,110 @@ svg.leaflet-image-layer.leaflet-interactive path {\r
           el.style.display = "flex";
           el.style.flexDirection = "column";
           el.style.gap = "8px";
-          el.innerHTML = `
-        <input placeholder="\uC81C\uBAA9" value="\u26FD \uC624\uD53C\uB137 \uC8FC\uC720\uC18C" style="width:100%;padding:8px;box-sizing:border-box;margin-bottom:8px;font-size:14px;border:1px solid var(--divider-color,#ccc);border-radius:4px;background:var(--card-background-color,#fff);color:var(--primary-text-color,#000)">
-        <ha-formfield label="API \uC0AC\uC6A9\uB7C9 \uD45C\uC2DC">
-          <ha-switch checked></ha-switch>
-        </ha-formfield>
-        <ha-formfield label="\uC990\uACA8\uCC3E\uAE30 \uD45C\uC2DC">
-          <ha-switch></ha-switch>
-        </ha-formfield>
-      `;
-          const titleInp = el.querySelectorAll("input")[0];
-          const usageSw = el.querySelectorAll("ha-switch")[0];
-          const favSw = el.querySelectorAll("ha-switch")[1];
-          const devPick = document.createElement("ha-entity-picker");
-          devPick.setAttribute("label", "\uC5D4\uD2F0\uD2F0 \uC120\uD0DD");
-          devPick.style.display = "block";
-          devPick.style.marginBottom = "8px";
-          el.insertBefore(devPick, el.querySelector("ha-formfield"));
+          const titleInp = document.createElement("input");
+          titleInp.placeholder = "\uC81C\uBAA9";
+          titleInp.value = "\u26FD \uC624\uD53C\uB137 \uC8FC\uC720\uC18C";
+          titleInp.style.cssText = "width:100%;padding:8px;box-sizing:border-box;margin-bottom:8px;font-size:14px;border:1px solid var(--divider-color,#ccc);border-radius:4px;background:var(--card-background-color,#fff);color:var(--primary-text-color,#000)";
+          el.appendChild(titleInp);
+          const devInp = document.createElement("input");
+          devInp.placeholder = "\uC5D4\uD2F0\uD2F0 (entity_id)";
+          devInp.style.cssText = "width:100%;padding:8px;box-sizing:border-box;margin-bottom:8px;font-size:14px;border:1px solid var(--divider-color,#ccc);border-radius:4px;background:var(--card-background-color,#fff);color:var(--primary-text-color,#000)";
+          el.appendChild(devInp);
+          const usageLbl = document.createElement("label");
+          usageLbl.style.cssText = "display:flex;align-items:center;gap:8px;font-size:14px;";
+          const usageCb = document.createElement("input");
+          usageCb.type = "checkbox";
+          usageCb.checked = true;
+          usageLbl.appendChild(usageCb);
+          usageLbl.appendChild(document.createTextNode("API \uC0AC\uC6A9\uB7C9 \uD45C\uC2DC"));
+          el.appendChild(usageLbl);
+          const favLbl = document.createElement("label");
+          favLbl.style.cssText = "display:flex;align-items:center;gap:8px;font-size:14px;";
+          const favCb = document.createElement("input");
+          favCb.type = "checkbox";
+          favLbl.appendChild(favCb);
+          favLbl.appendChild(document.createTextNode("\uC990\uACA8\uCC3E\uAE30 \uD45C\uC2DC"));
+          el.appendChild(favLbl);
+          const upgrade = () => {
+            const hasPicker = customElements.get("ha-entity-picker");
+            const hasSwitch = customElements.get("ha-switch");
+            if (!hasPicker && !hasSwitch) return;
+            if (hasPicker) {
+              const pick = document.createElement("ha-entity-picker");
+              pick.setAttribute("label", "\uC5D4\uD2F0\uD2F0 \uC120\uD0DD");
+              pick.style.display = "block";
+              pick.style.marginBottom = "8px";
+              pick.value = devInp.value;
+              pick.addEventListener("value-changed", () => {
+                devInp.value = pick.value || "";
+                fire();
+              });
+              devInp.replaceWith(pick);
+              el._devPick = pick;
+              if (el._hass) pick.hass = el._hass;
+            }
+            if (hasSwitch) {
+              [
+                { cb: usageCb, lbl: usageLbl, label: "API \uC0AC\uC6A9\uB7C9 \uD45C\uC2DC", key: "_usageSw", checked: true },
+                { cb: favCb, lbl: favLbl, label: "\uC990\uACA8\uCC3E\uAE30 \uD45C\uC2DC", key: "_favSw", checked: false }
+              ].forEach(({ cb, lbl, label, key, checked }) => {
+                const ff = document.createElement("ha-formfield");
+                ff.setAttribute("label", label);
+                const sw = document.createElement("ha-switch");
+                sw.checked = cb.checked;
+                ff.appendChild(sw);
+                sw.addEventListener("click", () => {
+                  setTimeout(() => {
+                    cb.checked = sw.checked;
+                    fire();
+                  }, 0);
+                });
+                lbl.replaceWith(ff);
+                el[key] = sw;
+              });
+            }
+          };
+          if (customElements.get("ha-entity-picker") || customElements.get("ha-switch")) {
+            upgrade();
+          }
+          Promise.all([
+            customElements.whenDefined("ha-entity-picker"),
+            customElements.whenDefined("ha-switch")
+          ]).then(upgrade);
+          Object.defineProperty(el, "hass", {
+            set(h) {
+              el._hass = h;
+              if (el._devPick) el._devPick.hass = h;
+            }
+          });
           el.setConfig = function(cfg) {
             titleInp.value = cfg.title || "\u26FD \uC624\uD53C\uB137 \uC8FC\uC720\uC18C";
-            devPick.value = cfg.device || "";
-            usageSw.checked = cfg.show_usage !== false;
-            favSw.checked = cfg.show_fav === true;
+            const dv = cfg.device || "";
+            if (el._devPick) el._devPick.value = dv;
+            else devInp.value = dv;
+            usageCb.checked = cfg.show_usage !== false;
+            favCb.checked = cfg.show_fav === true;
+            if (el._usageSw) el._usageSw.checked = usageCb.checked;
+            if (el._favSw) el._favSw.checked = favCb.checked;
           };
-          const fireChange = () => {
-            setTimeout(() => {
-              const ev = new Event("config-changed", { bubbles: true, composed: true });
-              ev.detail = { config: el.value };
-              el.dispatchEvent(ev);
-            }, 0);
-          };
-          titleInp.addEventListener("input", fireChange);
-          devPick.addEventListener("value-changed", fireChange);
-          usageSw.addEventListener("click", fireChange);
-          favSw.addEventListener("click", fireChange);
+          const fire = () => setTimeout(() => {
+            const ev = new Event("config-changed", { bubbles: true, composed: true });
+            ev.detail = { config: el.value };
+            el.dispatchEvent(ev);
+          }, 0);
+          titleInp.addEventListener("input", fire);
+          devInp.addEventListener("input", fire);
+          usageCb.addEventListener("change", fire);
+          favCb.addEventListener("change", fire);
           Object.defineProperty(el, "value", { get() {
-            const v = { type: "custom:opinet-rank-card", title: titleInp.value, show_usage: usageSw.checked, show_fav: favSw.checked };
-            if (devPick.value) v.device = devPick.value;
+            const v = {
+              type: "custom:opinet-rank-card",
+              title: titleInp.value,
+              show_usage: usageCb.checked,
+              show_fav: favCb.checked
+            };
+            const dv = (el._devPick ? el._devPick.value : devInp.value) || "";
+            if (dv) v.device = dv;
             return v;
           } });
           return el;
