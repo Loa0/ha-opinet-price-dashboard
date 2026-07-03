@@ -212,30 +212,36 @@ if (!customElements.get('opinet-map-card')) {
       this._ro.observe(container);
 
       // updated() equivalent: double rAF → DOM layout 확정 후 initMap
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          if (!container.isConnected || !container.offsetParent) return;
-          if (this._map) { this._map.remove(); this._map = null; }
-          const retina = L.Browser.retina;
-          const map = L.map(container, {
-            dragging: true,
-            zoomControl: false,
-            scrollWheelZoom: true,
-            zoom: 14,
-            minZoom: 7,
-          }).setView([36.5, 127.5], 14);
-          L.tileLayer.provider('CartoDB.Positron', {
-            className: 'map-tiles',
-            detectRetina: true,
-            tileSize: retina ? 512 : 256,
-            zoomOffset: retina ? -1 : 0,
-            transparent: true,
-          }).addTo(map);
-          this._map = map;
-          this._addMarkers();
-          setTimeout(() => map.invalidateSize(false), 200);
+      const doInit = () => {
+        if (!container.isConnected || !container.offsetParent) {
+          requestAnimationFrame(doInit);
+          return;
+        }
+        if (this._map) { this._map.remove(); this._map = null; }
+        const retina = L.Browser.retina;
+        const map = L.map(container, {
+          dragging: true,
+          zoomControl: false,
+          scrollWheelZoom: true,
+          zoom: 14,
+          minZoom: 7,
+        }).setView([36.5, 127.5], 14);
+        const tiles = L.tileLayer.provider('CartoDB.Positron', {
+          className: 'map-tiles',
+          detectRetina: true,
+          tileSize: retina ? 512 : 256,
+          zoomOffset: retina ? -1 : 0,
+          transparent: true,
+        }).addTo(map);
+        this._map = map;
+        this._addMarkers();
+        // 첫 타일 로드 완료 후에만 invalidateSize → 로딩 중단 방지
+        let firstLoad = true;
+        tiles.on('load', () => {
+          if (firstLoad) { firstLoad = false; map.invalidateSize(false); }
         });
-      });
+      };
+      requestAnimationFrame(() => requestAnimationFrame(doInit));
     }
 
     _addMarkers() {

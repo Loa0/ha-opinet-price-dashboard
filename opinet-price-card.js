@@ -11459,33 +11459,41 @@ svg.leaflet-image-layer.leaflet-interactive path {\r
           if (this._ro) this._ro.disconnect();
           this._ro = new ResizeObserver(() => this._fixSize());
           this._ro.observe(container);
-          requestAnimationFrame(() => {
-            requestAnimationFrame(() => {
-              if (!container.isConnected || !container.offsetParent) return;
-              if (this._map) {
-                this._map.remove();
-                this._map = null;
+          const doInit = () => {
+            if (!container.isConnected || !container.offsetParent) {
+              requestAnimationFrame(doInit);
+              return;
+            }
+            if (this._map) {
+              this._map.remove();
+              this._map = null;
+            }
+            const retina = import_leaflet.default.Browser.retina;
+            const map = import_leaflet.default.map(container, {
+              dragging: true,
+              zoomControl: false,
+              scrollWheelZoom: true,
+              zoom: 14,
+              minZoom: 7
+            }).setView([36.5, 127.5], 14);
+            const tiles = import_leaflet.default.tileLayer.provider("CartoDB.Positron", {
+              className: "map-tiles",
+              detectRetina: true,
+              tileSize: retina ? 512 : 256,
+              zoomOffset: retina ? -1 : 0,
+              transparent: true
+            }).addTo(map);
+            this._map = map;
+            this._addMarkers();
+            let firstLoad = true;
+            tiles.on("load", () => {
+              if (firstLoad) {
+                firstLoad = false;
+                map.invalidateSize(false);
               }
-              const retina = import_leaflet.default.Browser.retina;
-              const map = import_leaflet.default.map(container, {
-                dragging: true,
-                zoomControl: false,
-                scrollWheelZoom: true,
-                zoom: 14,
-                minZoom: 7
-              }).setView([36.5, 127.5], 14);
-              import_leaflet.default.tileLayer.provider("CartoDB.Positron", {
-                className: "map-tiles",
-                detectRetina: true,
-                tileSize: retina ? 512 : 256,
-                zoomOffset: retina ? -1 : 0,
-                transparent: true
-              }).addTo(map);
-              this._map = map;
-              this._addMarkers();
-              setTimeout(() => map.invalidateSize(false), 200);
             });
-          });
+          };
+          requestAnimationFrame(() => requestAnimationFrame(doInit));
         }
         _addMarkers() {
           if (!this._map) return;
