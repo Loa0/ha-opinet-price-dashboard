@@ -10418,26 +10418,30 @@ svg.leaflet-image-layer.leaflet-interactive path {\r
         _drawImpl() {
           this._destroy();
           this.innerHTML = "";
-          const card = document.createElement("ha-card");
-          card.style.cssText = "overflow:hidden;width:100%;height:400px;display:flex;flex-direction:column;";
-          const root = document.createElement("div");
-          root.style.cssText = "position:relative;height:100%;flex:1;";
+          const isDark = this._hass && this._hass.themes && this._hass.themes.darkMode;
+          const card = document.createElement("div");
+          card.style.cssText = "background:var(--ha-card-background,var(--card-background-color,#fff));border-radius:var(--ha-card-border-radius,12px);box-shadow:var(--ha-card-box-shadow,0 1px 3px rgba(0,0,0,.12));overflow:hidden;width:100%;height:400px;";
+          const wrapper = document.createElement("div");
+          wrapper.style.cssText = "position:relative;width:100%;height:100%;";
           const container = document.createElement("div");
-          container.style.cssText = "position:absolute;top:0;left:0;width:100%;height:100%;border:none;background:inherit;z-index:0;";
-          root.appendChild(container);
-          card.appendChild(root);
+          container.style.cssText = "height:100%;width:100%;background:transparent!important;";
+          if (isDark) {
+            container.style.filter = "brightness(0.8) invert(0.9) contrast(2.1) brightness(2) opacity(0.27) grayscale(1)";
+          }
+          wrapper.appendChild(container);
+          card.appendChild(wrapper);
           this.appendChild(card);
           this._container = container;
-          let attempts = 0;
-          const maxAttempts = 60;
-          const tryInit = () => {
-            attempts++;
-            if (!container.isConnected) {
-              if (attempts < maxAttempts) setTimeout(tryInit, 100);
-              return;
-            }
-            if (!container.offsetParent) {
-              if (attempts < maxAttempts) setTimeout(tryInit, 100);
+          this._cardEl = card;
+          if (!this.querySelector(".omap-style")) {
+            const st = document.createElement("style");
+            st.className = "omap-style";
+            st.textContent = ".leaflet-container{background:transparent!important}";
+            this.appendChild(st);
+          }
+          const initMap = () => {
+            if (!container.isConnected || !container.offsetParent) {
+              setTimeout(initMap, 100);
               return;
             }
             if (this._map) {
@@ -10458,7 +10462,7 @@ svg.leaflet-image-layer.leaflet-interactive path {\r
             });
             this._ro.observe(container);
           };
-          setTimeout(tryInit, 50);
+          setTimeout(initMap, 50);
         }
         _addMarkers() {
           if (!this._map) return;

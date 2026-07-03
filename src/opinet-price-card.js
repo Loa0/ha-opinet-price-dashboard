@@ -178,27 +178,39 @@ if (!customElements.get('opinet-map-card')) {
       this._destroy();
       this.innerHTML = '';
 
-      const card = document.createElement('ha-card');
-      card.style.cssText = 'overflow:hidden;width:100%;height:400px;display:flex;flex-direction:column;';
+      // vehicle-status-card style: no ha-card, direct div wrapper
+      const isDark = this._hass && this._hass.themes && this._hass.themes.darkMode;
+      const card = document.createElement('div');
+      card.style.cssText = 'background:var(--ha-card-background,var(--card-background-color,#fff));border-radius:var(--ha-card-border-radius,12px);box-shadow:var(--ha-card-box-shadow,0 1px 3px rgba(0,0,0,.12));overflow:hidden;width:100%;height:400px;';
 
-      const root = document.createElement('div');
-      root.style.cssText = 'position:relative;height:100%;flex:1;';
+      // wrapper: position relative (vehicle-status-card pattern)
+      const wrapper = document.createElement('div');
+      wrapper.style.cssText = 'position:relative;width:100%;height:100%;';
 
+      // map container
       const container = document.createElement('div');
-      container.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;border:none;background:inherit;z-index:0;';
+      container.style.cssText = 'height:100%;width:100%;background:transparent!important;';
+      // Dark mode tile filter (vehicle-status-card pattern)
+      if (isDark) {
+        container.style.filter = 'brightness(0.8) invert(0.9) contrast(2.1) brightness(2) opacity(0.27) grayscale(1)';
+      }
 
-      root.appendChild(container);
-      card.appendChild(root);
+      wrapper.appendChild(container);
+      card.appendChild(wrapper);
       this.appendChild(card);
       this._container = container;
+      this._cardEl = card;
 
-      let attempts = 0;
-      const maxAttempts = 60;
-      const tryInit = () => {
-        attempts++;
-        if (!container.isConnected) { if (attempts < maxAttempts) setTimeout(tryInit, 100); return; }
-        if (!container.offsetParent) { if (attempts < maxAttempts) setTimeout(tryInit, 100); return; }
+      // Style injection for .leaflet-container
+      if (!this.querySelector('.omap-style')) {
+        const st = document.createElement('style');
+        st.className = 'omap-style';
+        st.textContent = '.leaflet-container{background:transparent!important}';
+        this.appendChild(st);
+      }
 
+      const initMap = () => {
+        if (!container.isConnected || !container.offsetParent) { setTimeout(initMap, 100); return; }
         if (this._map) { this._map.remove(); this._map = null; }
         const map = L.map(container, { attributionControl: false, zoomControl: false }).setView([36.5, 127.5], 14);
         L.tileLayer('https://basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}' + (L.Browser.retina ? '@2x.png' : '.png'), {
@@ -212,7 +224,7 @@ if (!customElements.get('opinet-map-card')) {
         this._ro = new ResizeObserver(() => { if (this._map) this._map.invalidateSize({ debounceMoveend: true }); });
         this._ro.observe(container);
       };
-      setTimeout(tryInit, 50);
+      setTimeout(initMap, 50);
     }
 
     _addMarkers() {
