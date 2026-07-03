@@ -30,10 +30,9 @@ show_usage: true         # API 사용량 표시 (기본: true)
 
 ```yaml
 type: custom:opinet-map-card
-# device_id 생략 시 자동 검색
 ```
 
-> `device_id`는 생략 가능합니다. `ha-opinet-price` 통합구성요소가 설치되어 있으면 기기를 자동으로 찾습니다.
+> `ha-opinet-price` 통합구성요소가 설치되어 있으면 주유소 위치를 자동으로 찾아 지도에 표시합니다.
 
 ## 요구사항
 

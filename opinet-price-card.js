@@ -42,25 +42,11 @@ function _opinetFindUsageSensor(hass) {
   return null;
 }
 
-function _opinetFindDeviceId(hass) {
-  // auto-detect "오피넷 주유소" device
-  for (const [, entity] of Object.entries(hass.entities || {})) {
-    if (entity.platform === 'device_tracker' && entity.device_id) {
-      const state = hass.states[entity.entity_id];
-      if (state && state.attributes.상호명) return entity.device_id;
-    }
-  }
-  return null;
-}
-
-function _opinetFindDeviceTrackers(hass, deviceId) {
+function _opinetFindDeviceTrackers(hass) {
   const trackers = [];
-  for (const [eid, entity] of Object.entries(hass.entities || {})) {
-    if (entity.device_id === deviceId && entity.platform === 'device_tracker') {
-      const state = hass.states[eid];
-      if (state) {
-        trackers.push({ entity_id: eid, state, attrs: state.attributes });
-      }
+  for (const [eid, state] of Object.entries(hass.states)) {
+    if (eid.startsWith('device_tracker.') && state.attributes.상호명) {
+      trackers.push({ entity_id: eid, state, attrs: state.attributes });
     }
   }
   return trackers;
@@ -198,18 +184,15 @@ class OpinetMapCard extends HTMLElement {
   }
 
   _render() {
-    const deviceId = this._config.device_id || _opinetFindDeviceId(this._hass);
+    const trackers = _opinetFindDeviceTrackers(this._hass);
 
-    if (!deviceId) {
+    if (trackers.length === 0) {
       this.innerHTML = `<ha-card><div style="padding:16px;text-align:center;color:var(--secondary-text-color);">
-        ⚠️ 오피넷 주유소 기기를 찾을 수 없습니다.<br>
-        <small>설정 → 기기 및 서비스 → 오피넷 주유소 기기에서 기기 ID를 확인하거나,<br>
-        ha-opinet-price 통합구성요소가 설치되어 있는지 확인하세요.</small>
+        ⚠️ 주유소 위치 정보를 찾을 수 없습니다.<br>
+        <small>ha-opinet-price v1.7.0+ 가 설치되어 있고, 센서 데이터가 수집되었는지 확인하세요.</small>
       </div></ha-card>`;
       return;
     }
-
-    const trackers = _opinetFindDeviceTrackers(this._hass, deviceId);
 
     if (!this._containerId) {
       this._containerId = `opinet-map-${Math.random().toString(36).slice(2)}`;
