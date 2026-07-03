@@ -170,7 +170,7 @@ if (!customElements.get('opinet-map-card')) {
     _initMap() {
       if (this._map) return;
       if (!this.querySelector('.omap')) {
-        this.innerHTML = '<div class="omap" style="height:400px;"></div>';
+        this.innerHTML = '<div class="omap" style="height:400px;overflow:hidden;"></div>';
       }
       const container = this.querySelector('.omap');
       if (!container || !container.offsetParent) { setTimeout(() => this._initMap(), 100); return; }
@@ -214,6 +214,34 @@ if (!customElements.get('opinet-map-card')) {
       return list;
     }
     getCardSize() { return 6; }
+    // ponytail: copy rank card editor pattern
+    static getConfigElement() {
+      const el = document.createElement('div');
+      el.style.display = 'flex'; el.style.flexDirection = 'column'; el.style.gap = '8px';
+      const centerPick = document.createElement('ha-entity-picker');
+      centerPick.setAttribute('label', '기준 위치'); centerPick.style.display = 'block';
+      el.appendChild(centerPick);
+      const devPick = document.createElement('ha-entity-picker');
+      devPick.setAttribute('label', '주유소 마커'); devPick.style.display = 'block';
+      el.appendChild(devPick);
+      el.setConfig = function(cfg) {
+        centerPick.value = cfg.center || ''; devPick.value = (cfg.devices || []).join(',');
+      };
+      const fireChange = () => setTimeout(() => {
+        const ev = new Event('config-changed', { bubbles: true, composed: true });
+        ev.detail = { config: el.value }; el.dispatchEvent(ev);
+      }, 0);
+      centerPick.addEventListener('value-changed', fireChange);
+      devPick.addEventListener('value-changed', fireChange);
+      Object.defineProperty(el, 'value', { get() {
+        const v = { type: 'custom:opinet-map-card' };
+        if (centerPick.value) v.center = centerPick.value;
+        if (devPick.value) v.devices = devPick.value.split(',').filter(Boolean);
+        return v;
+      }});
+      return el;
+    }
+    static getStubConfig() { return {}; }
   }
   customElements.define('opinet-map-card', OpinetMapCard);
 }
