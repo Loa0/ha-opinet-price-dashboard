@@ -174,17 +174,25 @@ if (!customElements.get('opinet-map-card')) {
     set hass(h) {
       this._hass = h;
       if (!this._cfg || !this._cfg.device_tracker) return;
-      const st = h.states[this._cfg.device_tracker];
-      if (!st || st.attributes.latitude == null) return;
-      const lat = st.attributes.latitude;
-      const lon = st.attributes.longitude;
+      // resolve device_id from selected tracker
+      let deviceId = null;
+      if (h.entities && h.entities[this._cfg.device_tracker]) {
+        deviceId = h.entities[this._cfg.device_tracker].device_id;
+      }
+      if (!deviceId) return;
+      // find all trackers for this device
+      const trackers = [];
+      for (const [eid, s] of Object.entries(h.states)) {
+        if (!eid.startsWith('device_tracker.')) continue;
+        if (!s.attributes['상호명']) continue;
+        const ent = h.entities && h.entities[eid];
+        if (!ent || ent.device_id !== deviceId) continue;
+        trackers.push({ eid, ...s.attributes });
+      }
+      if (!trackers.length) return;
       if (!this._map) {
-        this._lat = lat; this._lon = lon;
+        this._trackers = trackers;
         this._draw();
-      } else if (lat !== this._lat || lon !== this._lon) {
-        this._lat = lat; this._lon = lon;
-        this._marker.setLatLng([lat, lon]);
-        this._map.setView([lat, lon], this._map.getZoom());
       }
     }
 
@@ -197,7 +205,6 @@ if (!customElements.get('opinet-map-card')) {
         ? '--vic-map-tiles-filter:brightness(0.8) invert(0.9) contrast(2.1) brightness(2) opacity(0.27) grayscale(1)'
         : '--vic-map-tiles-filter:none';
 
-      // vehicle-status-card: leaflet CSS + component styles IN shadow DOM
       this.shadowRoot.innerHTML = `
         <style>${leafletCSS}</style>
         <style>
@@ -214,27 +221,18 @@ if (!customElements.get('opinet-map-card')) {
           .map-tiles { filter: var(--vic-map-tiles-filter, none); }
           .leaflet-control-container { display: none; }
           #omap { height: 100%; width: 100%; background: transparent !important; }
-          .omarker {
-            background: transparent !important;
+          .oprice {
+            background: #1976d2 !important;
+            color: #fff !important;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 600;
+            white-space: nowrap;
+            box-shadow: 0 1px 3px rgba(0,0,0,.3);
             border: none !important;
-          }
-          .omarker::before {
-            content: '';
-            position: absolute;
-            width: 36px; height: 36px;
-            top: 50%; left: 50%;
-            transform: translate(-50%, -50%);
-            background: radial-gradient(circle, transparent 0%, rgba(25,118,210,0.25) 100%);
-            border-radius: 50%;
-          }
-          .omarker::after {
-            content: '';
-            position: absolute;
-            width: 12px; height: 12px;
-            background: #1976d2;
-            border-radius: 50%;
-            top: 50%; left: 50%;
-            transform: translate(-50%, -50%);
+            width: auto !important;
+            height: auto !important;
           }
         </style>
         <div id="omap" style="${tileFilter}"></div>
@@ -246,7 +244,7 @@ if (!customElements.get('opinet-map-card')) {
         dragging: true,
         zoomControl: false,
         scrollWheelZoom: true,
-      }).setView([this._lat, this._lon], zoom);
+      }).setView([36.5, 127.5], zoom);
 
       L.tileLayer.provider('CartoDB.Positron', {
         className: 'map-tiles',
@@ -256,9 +254,28 @@ if (!customElements.get('opinet-map-card')) {
         transparent: true,
       }).addTo(map);
 
-      this._marker = L.marker([this._lat, this._lon], {
-        icon: L.divIcon({ className: 'omarker' }),
-      }).addTo(map);
+      this._markers = [];
+      const bounds = [];
+      for (const t of this._trackers) {
+        const lat = t.latitude, lon = t.longitude;
+        if (lat == null || lon == null) continue;
+        const price = t['가격'] ? Number(t['가격']).toLocaleString() + '원' : '';
+        const name = t['상호명'] || '';
+        const addr = t['주소'] || '';
+        const icon = L.divIcon({
+          className: 'oprice',
+          html: price,
+          iconSize: null,
+          iconAnchor: null,
+        });
+        const marker = L.marker([lat, lon], { icon }).addTo(map);
+        if (price || name) {
+          marker.bindPopup('<b>' + name + '</b><br>' + price + '<br>' + addr);
+        }
+        this._markers.push(marker);
+        bounds.push([lat, lon]);
+      }
+      if (bounds.length) map.fitBounds(bounds, { padding: [30, 30] });
 
       this._map = map;
 
@@ -269,7 +286,7 @@ if (!customElements.get('opinet-map-card')) {
     disconnectedCallback() {
       if (this._ro) { this._ro.disconnect(); this._ro = null; }
       if (this._map) { this._map.remove(); this._map = null; }
-      this._marker = null;
+      this._markers = null;
     }
 
     getCardSize() { return 6; }

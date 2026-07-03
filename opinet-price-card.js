@@ -11429,19 +11429,23 @@ svg.leaflet-image-layer.leaflet-interactive path {\r
         set hass(h) {
           this._hass = h;
           if (!this._cfg || !this._cfg.device_tracker) return;
-          const st = h.states[this._cfg.device_tracker];
-          if (!st || st.attributes.latitude == null) return;
-          const lat = st.attributes.latitude;
-          const lon = st.attributes.longitude;
+          let deviceId = null;
+          if (h.entities && h.entities[this._cfg.device_tracker]) {
+            deviceId = h.entities[this._cfg.device_tracker].device_id;
+          }
+          if (!deviceId) return;
+          const trackers = [];
+          for (const [eid, s] of Object.entries(h.states)) {
+            if (!eid.startsWith("device_tracker.")) continue;
+            if (!s.attributes["\uC0C1\uD638\uBA85"]) continue;
+            const ent = h.entities && h.entities[eid];
+            if (!ent || ent.device_id !== deviceId) continue;
+            trackers.push({ eid, ...s.attributes });
+          }
+          if (!trackers.length) return;
           if (!this._map) {
-            this._lat = lat;
-            this._lon = lon;
+            this._trackers = trackers;
             this._draw();
-          } else if (lat !== this._lat || lon !== this._lon) {
-            this._lat = lat;
-            this._lon = lon;
-            this._marker.setLatLng([lat, lon]);
-            this._map.setView([lat, lon], this._map.getZoom());
           }
         }
         _draw() {
@@ -11465,27 +11469,18 @@ svg.leaflet-image-layer.leaflet-interactive path {\r
           .map-tiles { filter: var(--vic-map-tiles-filter, none); }
           .leaflet-control-container { display: none; }
           #omap { height: 100%; width: 100%; background: transparent !important; }
-          .omarker {
-            background: transparent !important;
+          .oprice {
+            background: #1976d2 !important;
+            color: #fff !important;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 600;
+            white-space: nowrap;
+            box-shadow: 0 1px 3px rgba(0,0,0,.3);
             border: none !important;
-          }
-          .omarker::before {
-            content: '';
-            position: absolute;
-            width: 36px; height: 36px;
-            top: 50%; left: 50%;
-            transform: translate(-50%, -50%);
-            background: radial-gradient(circle, transparent 0%, rgba(25,118,210,0.25) 100%);
-            border-radius: 50%;
-          }
-          .omarker::after {
-            content: '';
-            position: absolute;
-            width: 12px; height: 12px;
-            background: #1976d2;
-            border-radius: 50%;
-            top: 50%; left: 50%;
-            transform: translate(-50%, -50%);
+            width: auto !important;
+            height: auto !important;
           }
         </style>
         <div id="omap" style="${tileFilter}"></div>
@@ -11496,7 +11491,7 @@ svg.leaflet-image-layer.leaflet-interactive path {\r
             dragging: true,
             zoomControl: false,
             scrollWheelZoom: true
-          }).setView([this._lat, this._lon], zoom);
+          }).setView([36.5, 127.5], zoom);
           import_leaflet.default.tileLayer.provider("CartoDB.Positron", {
             className: "map-tiles",
             detectRetina: true,
@@ -11504,9 +11499,28 @@ svg.leaflet-image-layer.leaflet-interactive path {\r
             zoomOffset: import_leaflet.default.Browser.retina ? -1 : 0,
             transparent: true
           }).addTo(map);
-          this._marker = import_leaflet.default.marker([this._lat, this._lon], {
-            icon: import_leaflet.default.divIcon({ className: "omarker" })
-          }).addTo(map);
+          this._markers = [];
+          const bounds = [];
+          for (const t of this._trackers) {
+            const lat = t.latitude, lon = t.longitude;
+            if (lat == null || lon == null) continue;
+            const price = t["\uAC00\uACA9"] ? Number(t["\uAC00\uACA9"]).toLocaleString() + "\uC6D0" : "";
+            const name = t["\uC0C1\uD638\uBA85"] || "";
+            const addr = t["\uC8FC\uC18C"] || "";
+            const icon = import_leaflet.default.divIcon({
+              className: "oprice",
+              html: price,
+              iconSize: null,
+              iconAnchor: null
+            });
+            const marker = import_leaflet.default.marker([lat, lon], { icon }).addTo(map);
+            if (price || name) {
+              marker.bindPopup("<b>" + name + "</b><br>" + price + "<br>" + addr);
+            }
+            this._markers.push(marker);
+            bounds.push([lat, lon]);
+          }
+          if (bounds.length) map.fitBounds(bounds, { padding: [30, 30] });
           this._map = map;
           this._ro = new ResizeObserver(() => map.invalidateSize(false));
           this._ro.observe(c);
@@ -11520,7 +11534,7 @@ svg.leaflet-image-layer.leaflet-interactive path {\r
             this._map.remove();
             this._map = null;
           }
-          this._marker = null;
+          this._markers = null;
         }
         getCardSize() {
           return 6;
