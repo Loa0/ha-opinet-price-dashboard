@@ -135,7 +135,7 @@ if (!customElements.get('opinet-rank-card')) {
       el.style.gap = '8px';
       el.innerHTML = `
         <paper-input label="제목" value="⛽ 오피넷 주유소"></paper-input>
-        <paper-input label="Device ID (선택사항)" placeholder="HA 기기 페이지 URL에서 복사"></paper-input>
+        <paper-input label="기기 선택 (Device ID)" placeholder="HA 설정 → 기기 → URL에서 ID 복사"></paper-input>
         <ha-formfield label="API 사용량 표시">
           <ha-switch checked></ha-switch>
         </ha-formfield>
