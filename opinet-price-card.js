@@ -146,9 +146,8 @@ if (!customElements.get('opinet-rank-card')) {
       const usageSw = el.querySelectorAll('ha-switch')[0];
       const favSw = el.querySelectorAll('ha-switch')[1];
 
-      // ponytail: ha-entity-picker uses @consume → works in plain div (unlike ha-device-picker)
+      // ponytail: no domain filter — user picks whatever entity, findStations resolves device_id
       const devPick = document.createElement('ha-entity-picker');
-      devPick.setAttribute('domain-filter', 'device_tracker');
       devPick.setAttribute('label', '엔티티 선택');
       devPick.style.display = 'block';
       devPick.style.marginBottom = '8px';
