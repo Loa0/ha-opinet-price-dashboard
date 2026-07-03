@@ -196,30 +196,43 @@ if (!customElements.get('opinet-map-card')) {
     setConfig(c) { this._cfg = { ...c }; }
     set hass(h) { this._hass = h; if (this._cfg) this._draw(); }
     _draw() {
-      const trackers = findTrackers(this._hass);
+      let trackers = findTrackers(this._hass);
+      // ponytail: filter by configured entity IDs
+      if (this._cfg.devices && this._cfg.devices.length) {
+        const ids = new Set(this._cfg.devices);
+        trackers = trackers.filter(t => ids.has(t.eid));
+      }
       if (!trackers.length) {
         this.innerHTML = '<ha-card><div style="padding:16px;text-align:center;color:var(--secondary-text-color)">주유소 위치 정보가 없습니다</div></ha-card>';
         return;
       }
+      // ponytail: center on configured entity
+      let centerLat = null, centerLon = null;
+      if (this._cfg.center) {
+        const cs = this._hass.states[this._cfg.center];
+        if (cs && cs.attributes && cs.attributes.latitude != null) {
+          centerLat = cs.attributes.latitude;
+          centerLon = cs.attributes.longitude;
+        }
+      }
       const mapId = 'omap-' + Date.now();
       this.innerHTML = '<div id="' + mapId + '" style="height:400px;"></div>';
-      // ponytail: setTimeout — innerHTML DOM settle before Leaflet callback
       setTimeout(() => loadLeaflet(() => {
         const el = document.getElementById(mapId);
         if (!el) return;
         try {
           if (this._map) { this._map.remove(); }
-          this._map = L.map(mapId, { attributionControl: false }).setView([36.5, 127.5], 7);
+          this._map = L.map(mapId, { attributionControl: false });
           L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 18 }).addTo(this._map);
           const bounds = [];
           for (const t of trackers) {
-            const lat = t.attributes ? t.attributes.latitude : t.latitude;
-            const lon = t.attributes ? t.attributes.longitude : t.longitude;
+            // ponytail: findTrackers spreads attributes, so lat/lon are top-level
+            const lat = t.latitude, lon = t.longitude;
             if (lat == null || lon == null) continue;
-            const price = t['가격'] || (t.attributes && t.attributes['가격']);
+            const price = t['가격'];
             const label = price ? Number(price).toLocaleString() + '원' : '';
-            const name = t['상호명'] || (t.attributes && t.attributes['상호명']) || '';
-            const addr = t['주소'] || (t.attributes && t.attributes['주소']) || '';
+            const name = t['상호명'] || '';
+            const addr = t['주소'] || '';
             const icon = L.divIcon({
               className: 'omarker',
               html: '<div style="background:#1976d2;color:#fff;padding:2px 6px;border-radius:4px;font-size:11px;font-weight:600;white-space:nowrap;box-shadow:0 1px 3px rgba(0,0,0,.3);transform:translate(-50%,-100%);margin-top:-6px;">' + label + '</div>',
@@ -229,7 +242,8 @@ if (!customElements.get('opinet-map-card')) {
               .bindPopup('<b>' + name + '</b><br>' + label + '<br>' + addr);
             bounds.push([lat, lon]);
           }
-          if (bounds.length) this._map.fitBounds(bounds, { padding: [20,20] });
+          if (centerLat != null) this._map.setView([centerLat, centerLon], 14);
+          else if (bounds.length) this._map.fitBounds(bounds, { padding: [20,20] });
           else this._map.setView([36.5, 127.5], 7);
         } catch(e) {
           el.innerHTML = '<div style="padding:16px;color:red;">지도 오류: ' + e.message + '</div>';
@@ -237,6 +251,46 @@ if (!customElements.get('opinet-map-card')) {
       }), 50);
     }
     getCardSize() { return 6; }
+    // ponytail: copy-paste-adapt from rank card editor pattern
+    static getConfigElement() {
+      const el = document.createElement('div');
+      el.style.display = 'flex';
+      el.style.flexDirection = 'column';
+      el.style.gap = '8px';
+
+      const centerPick = document.createElement('ha-entity-picker');
+      centerPick.setAttribute('label', '기준 위치');
+      centerPick.style.display = 'block';
+      el.appendChild(centerPick);
+
+      const devPick = document.createElement('ha-entity-picker');
+      devPick.setAttribute('label', '주유소 마커');
+      devPick.style.display = 'block';
+      el.appendChild(devPick);
+
+      el.setConfig = function(cfg) {
+        centerPick.value = cfg.center || '';
+        devPick.value = (cfg.devices || []).join(',');
+      };
+
+      const fireChange = () => setTimeout(() => {
+        const ev = new Event('config-changed', { bubbles: true, composed: true });
+        ev.detail = { config: el.value };
+        el.dispatchEvent(ev);
+      }, 0);
+      centerPick.addEventListener('value-changed', fireChange);
+      devPick.addEventListener('value-changed', fireChange);
+
+      Object.defineProperty(el, 'value', { get() {
+        const v = { type: 'custom:opinet-map-card' };
+        if (centerPick.value) v.center = centerPick.value;
+        if (devPick.value) v.devices = devPick.value.split(',').filter(Boolean);
+        return v;
+      }});
+
+      return el;
+    }
+    static getStubConfig() { return {}; }
   }
   customElements.define('opinet-map-card', OpinetMapCard);
 }
