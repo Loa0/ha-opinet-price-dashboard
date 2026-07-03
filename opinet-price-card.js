@@ -193,20 +193,27 @@ if (!customElements.get('opinet-map-card')) {
 
     _draw() {
       try { this._drawImpl(); }
-      catch(e) { this.innerHTML = '<ha-card><div style="padding:16px;color:var(--error-color,red);">지도 오류: '+e.message+'</div></ha-card>'; }
+      catch(e) {
+        this._destroy();
+        this.innerHTML = '<div style="padding:16px;color:var(--error-color,red);">지도 오류: '+e.message+'</div>';
+      }
     }
 
     _drawImpl() {
-      const mapId = 'omap-' + (this._mapId = this._mapId || Date.now());
-      this.innerHTML = `<ha-card><div id="${mapId}" style="height:400px;width:100%;"></div></ha-card>`;
+      this._destroy();
+      this.innerHTML = '';
+      const card = document.createElement('ha-card');
+      const container = document.createElement('div');
+      container.style.cssText = 'height:400px;width:100%;';
+      card.appendChild(container);
+      this.appendChild(card);
+      this._container = container;
 
       let attempts = 0;
-      const maxAttempts = 60; // 6 sec max
+      const maxAttempts = 60;
       const tryInit = () => {
         attempts++;
-        const container = document.getElementById(mapId);
-        if (!container) { if (attempts < maxAttempts) setTimeout(tryInit, 100); return; }
-        // wait until container is visible (ha-card shadow DOM sizing resolved)
+        if (!container.isConnected) { if (attempts < maxAttempts) setTimeout(tryInit, 100); return; }
         if (!container.offsetParent) { if (attempts < maxAttempts) setTimeout(tryInit, 100); return; }
 
         const doMap = () => {
@@ -218,14 +225,13 @@ if (!customElements.get('opinet-map-card')) {
           }).addTo(map);
           this._map = map;
           this._addMarkers();
-          // ResizeObserver to handle ha-card/layout changes
           if (this._ro) this._ro.disconnect();
           this._ro = new ResizeObserver(() => { if (this._map) this._map.invalidateSize(); });
           this._ro.observe(container);
         };
 
         if (typeof L === 'undefined') {
-          loadLeaflet(() => { if (document.getElementById(mapId)) doMap(); });
+          loadLeaflet(() => { if (container.isConnected) doMap(); });
         } else {
           doMap();
         }
@@ -281,6 +287,8 @@ if (!customElements.get('opinet-map-card')) {
     _destroy() {
       if (this._ro) { this._ro.disconnect(); this._ro = null; }
       if (this._map) { this._map.remove(); this._map = null; }
+      this._container = null;
+      this._mapId = null;
     }
     disconnectedCallback() { this._destroy(); }
     getCardSize() { return 6; }
