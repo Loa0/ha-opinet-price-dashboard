@@ -1,6 +1,5 @@
 // ============================================================
 // Opinet Price Dashboard — HA Lovelace Custom Cards
-// 랭킹보드 + 지도카드
 // ============================================================
 
 // ===== Leaflet loader =====
@@ -43,12 +42,23 @@ function _opinetFindUsageSensor(hass) {
   return null;
 }
 
+function _opinetFindDeviceId(hass) {
+  // auto-detect "오피넷 주유소" device
+  for (const [, entity] of Object.entries(hass.entities || {})) {
+    if (entity.platform === 'device_tracker' && entity.device_id) {
+      const state = hass.states[entity.entity_id];
+      if (state && state.attributes.상호명) return entity.device_id;
+    }
+  }
+  return null;
+}
+
 function _opinetFindDeviceTrackers(hass, deviceId) {
   const trackers = [];
   for (const [eid, entity] of Object.entries(hass.entities || {})) {
     if (entity.device_id === deviceId && entity.platform === 'device_tracker') {
       const state = hass.states[eid];
-      if (state && state.attributes.latitude) {
+      if (state) {
         trackers.push({ entity_id: eid, state, attrs: state.attributes });
       }
     }
@@ -110,15 +120,15 @@ class OpinetRankCard extends HTMLElement {
       footer += `<div style="padding:4px 16px 0;font-size:0.78em;color:var(--secondary-text-color);text-align:right;">${u.state}</div>`;
     }
 
-    const headerRight = refreshBtn
-      ? `<mwc-button dense @click="${(e) => { e.stopPropagation(); this._refresh(refreshBtn); }}">🔄</mwc-button>`
+    const refreshHtml = refreshBtn
+      ? '<ha-icon-button class="opinet-refresh-btn" style="color:var(--primary-color);"><ha-icon icon="mdi:refresh"></ha-icon></ha-icon-button>'
       : '';
 
     this.innerHTML = `
       <ha-card>
         <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px 8px;">
           <div style="font-size:1.1em;font-weight:500;">${this._config.title}</div>
-          ${headerRight}
+          ${refreshHtml}
         </div>
         <div style="padding:0 8px 8px;">${content}</div>
         ${footer}
@@ -132,13 +142,24 @@ class OpinetRankCard extends HTMLElement {
 
     // click → more-info
     this.querySelectorAll('.opinet-rank-row').forEach(row => {
-      row.addEventListener('click', (e) => {
+      row.addEventListener('click', () => {
         this.dispatchEvent(new CustomEvent('hass-more-info', {
           bubbles: true, composed: true,
           detail: { entityId: row.dataset.entity },
         }));
       });
     });
+
+    // refresh button
+    if (refreshBtn) {
+      const btn = this.querySelector('.opinet-refresh-btn');
+      if (btn) {
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          this._refresh(refreshBtn);
+        });
+      }
+    }
   }
 
   _refresh(btnEntity) {
@@ -162,12 +183,10 @@ class OpinetMapCard extends HTMLElement {
     this._config = null;
     this._map = null;
     this._markers = [];
+    this._containerId = null;
   }
 
   setConfig(config) {
-    if (!config.device_id) {
-      throw new Error('device_id required — find it under Settings → Devices → 오피넷 주유소');
-    }
     this._config = { ...config };
   }
 
@@ -179,21 +198,34 @@ class OpinetMapCard extends HTMLElement {
   }
 
   _render() {
-    const trackers = _opinetFindDeviceTrackers(this._hass, this._config.device_id);
-    const container = document.createElement('div');
-    container.style.height = '400px';
-    container.id = `opinet-map-${Math.random().toString(36).slice(2)}`;
+    const deviceId = this._config.device_id || _opinetFindDeviceId(this._hass);
 
-    this.innerHTML = '';
-    this.appendChild(container);
+    if (!deviceId) {
+      this.innerHTML = `<ha-card><div style="padding:16px;text-align:center;color:var(--secondary-text-color);">
+        ⚠️ 오피넷 주유소 기기를 찾을 수 없습니다.<br>
+        <small>설정 → 기기 및 서비스 → 오피넷 주유소 기기에서 기기 ID를 확인하거나,<br>
+        ha-opinet-price 통합구성요소가 설치되어 있는지 확인하세요.</small>
+      </div></ha-card>`;
+      return;
+    }
 
-    // wait for Leaflet
+    const trackers = _opinetFindDeviceTrackers(this._hass, deviceId);
+
+    if (!this._containerId) {
+      this._containerId = `opinet-map-${Math.random().toString(36).slice(2)}`;
+    }
+
+    this.innerHTML = `<div id="${this._containerId}" style="height:400px;"></div>`;
+
+    const container = document.getElementById(this._containerId);
+    if (!container) return;
+
     const initMap = () => {
       if (typeof L === 'undefined') { setTimeout(initMap, 100); return; }
-      if (!container.offsetParent) { setTimeout(initMap, 100); return; }
+      if (!container.offsetParent) { setTimeout(initMap, 200); return; }
 
-      if (this._map) { this._map.remove(); }
-      this._map = L.map(container.id, { attributionControl: false }).setView([36.5, 127.5], 7);
+      if (this._map) { this._map.remove(); this._markers = []; }
+      this._map = L.map(this._containerId, { attributionControl: false }).setView([36.5, 127.5], 7);
 
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         maxZoom: 18,
@@ -201,22 +233,23 @@ class OpinetMapCard extends HTMLElement {
 
       const bounds = [];
       for (const t of trackers) {
-        const lat = t.state.attributes.latitude;
-        const lon = t.state.attributes.longitude;
+        const lat = t.attrs.latitude;
+        const lon = t.attrs.longitude;
         if (lat == null || lon == null) continue;
 
-        const label = t.attrs.가격표시 || t.attrs.가격 ? `${Number(t.attrs.가격).toLocaleString()}원` : '';
+        const label = t.attrs.가격표시 || (t.attrs.가격 ? `${Number(t.attrs.가격).toLocaleString()}원` : '');
         const name = t.attrs.상호명 || t.state.attributes.friendly_name || '';
+        const addr = t.attrs.주소 || '';
 
         const icon = L.divIcon({
           className: 'opinet-map-marker',
-          html: `<div style="background:#1976d2;color:#fff;padding:2px 6px;border-radius:4px;font-size:11px;font-weight:600;white-space:nowrap;box-shadow:0 1px 3px rgba(0,0,0,0.3);">${label}</div>`,
+          html: `<div style="background:#1976d2;color:#fff;padding:2px 6px;border-radius:4px;font-size:11px;font-weight:600;white-space:nowrap;box-shadow:0 1px 3px rgba(0,0,0,0.3);transform:translate(-50%,-100%);margin-top:-6px;">${label}</div>`,
           iconSize: [0, 0],
           iconAnchor: [0, 0],
         });
 
         const marker = L.marker([lat, lon], { icon }).addTo(this._map);
-        marker.bindPopup(`<b>${name}</b><br>${label}<br>${t.attrs.주소 || ''}`);
+        marker.bindPopup(`<b>${name}</b><br>${label}<br>${addr}`);
         this._markers.push(marker);
         bounds.push([lat, lon]);
       }
@@ -247,6 +280,6 @@ window.customCards.push(
   {
     type: 'opinet-map-card',
     name: 'Opinet Map Card',
-    description: '오피넷 주유소 지도 (기기단위 등록, 가격 마커)',
+    description: '오피넷 주유소 지도 (기기 자동감지)',
   }
 );

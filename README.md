@@ -30,10 +30,10 @@ show_usage: true         # API 사용량 표시 (기본: true)
 
 ```yaml
 type: custom:opinet-map-card
-device_id: abc123def456  # 오피넷 주유소 기기 ID
+# device_id 생략 시 자동 검색
 ```
 
-> 기기 ID 확인: 설정 → 기기 및 서비스 → 오피넷 주유소 기기 → URL에서 추출 또는 개발자 도구에서 확인
+> `device_id`는 생략 가능합니다. `ha-opinet-price` 통합구성요소가 설치되어 있으면 기기를 자동으로 찾습니다.
 
 ## 요구사항
 
