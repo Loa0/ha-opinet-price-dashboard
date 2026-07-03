@@ -196,24 +196,21 @@ if (!customElements.get('opinet-map-card')) {
     setConfig(c) { this._cfg = { ...c }; }
     set hass(h) { this._hass = h; if (this._cfg) this._draw(); }
     _draw() {
-      let trackers = findTrackers(this._hass);
-      // ponytail: filter by configured entity IDs
-      if (this._cfg.devices && this._cfg.devices.length) {
-        const ids = new Set(this._cfg.devices);
-        trackers = trackers.filter(t => ids.has(t.eid));
-      }
-      if (!trackers.length) {
-        this.innerHTML = '<ha-card><div style="padding:16px;text-align:center;color:var(--secondary-text-color)">주유소 위치 정보가 없습니다</div></ha-card>';
-        return;
-      }
-      // ponytail: center on configured entity
+      const trackers = findTrackers(this._hass);
+      // ponytail: filter + center, don't touch render loop
+      const filtered = (!this._cfg.devices || !this._cfg.devices.length)
+        ? trackers
+        : trackers.filter(t => (new Set(this._cfg.devices)).has(t.eid));
       let centerLat = null, centerLon = null;
       if (this._cfg.center) {
         const cs = this._hass.states[this._cfg.center];
         if (cs && cs.attributes && cs.attributes.latitude != null) {
-          centerLat = cs.attributes.latitude;
-          centerLon = cs.attributes.longitude;
+          centerLat = cs.attributes.latitude; centerLon = cs.attributes.longitude;
         }
+      }
+      if (!filtered.length) {
+        this.innerHTML = '<ha-card><div style="padding:16px;text-align:center;color:var(--secondary-text-color)">주유소 위치 정보가 없습니다</div></ha-card>';
+        return;
       }
       const mapId = 'omap-' + Date.now();
       this.innerHTML = '<div id="' + mapId + '" style="height:400px;"></div>';
@@ -222,17 +219,17 @@ if (!customElements.get('opinet-map-card')) {
         if (!el) return;
         try {
           if (this._map) { this._map.remove(); }
-          this._map = L.map(mapId, { attributionControl: false });
+          this._map = L.map(mapId, { attributionControl: false }).setView([36.5, 127.5], 7);
           L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 18 }).addTo(this._map);
           const bounds = [];
-          for (const t of trackers) {
-            // ponytail: findTrackers spreads attributes, so lat/lon are top-level
-            const lat = t.latitude, lon = t.longitude;
+          for (const t of filtered) {
+            const lat = t.attributes ? t.attributes.latitude : t.latitude;
+            const lon = t.attributes ? t.attributes.longitude : t.longitude;
             if (lat == null || lon == null) continue;
-            const price = t['가격'];
+            const price = t['가격'] || (t.attributes && t.attributes['가격']);
             const label = price ? Number(price).toLocaleString() + '원' : '';
-            const name = t['상호명'] || '';
-            const addr = t['주소'] || '';
+            const name = t['상호명'] || (t.attributes && t.attributes['상호명']) || '';
+            const addr = t['주소'] || (t.attributes && t.attributes['주소']) || '';
             const icon = L.divIcon({
               className: 'omarker',
               html: '<div style="background:#1976d2;color:#fff;padding:2px 6px;border-radius:4px;font-size:11px;font-weight:600;white-space:nowrap;box-shadow:0 1px 3px rgba(0,0,0,.3);transform:translate(-50%,-100%);margin-top:-6px;">' + label + '</div>',
