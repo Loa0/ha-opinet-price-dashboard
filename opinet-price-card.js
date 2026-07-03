@@ -11429,14 +11429,31 @@ svg.leaflet-image-layer.leaflet-interactive path {\r
         set hass(h) {
           this._hass = h;
           if (!this._cfg) return;
-          const trackers = [];
-          for (const [eid, s] of Object.entries(h.states)) {
-            if (!eid.startsWith("device_tracker.")) continue;
-            if (!s.attributes["\uC0C1\uD638\uBA85"]) continue;
-            trackers.push({ eid, ...s.attributes });
+          let centerLat = null, centerLon = null;
+          if (this._cfg.center_tracker) {
+            const cs = h.states[this._cfg.center_tracker];
+            if (cs && cs.attributes.latitude != null) {
+              centerLat = cs.attributes.latitude;
+              centerLon = cs.attributes.longitude;
+            }
           }
-          if (!trackers.length) return;
+          const trackers = [];
+          if (this._cfg.opinet_tracker && h.entities && h.entities[this._cfg.opinet_tracker]) {
+            const deviceId = h.entities[this._cfg.opinet_tracker].device_id;
+            if (deviceId) {
+              for (const [eid, s] of Object.entries(h.states)) {
+                if (!eid.startsWith("device_tracker.")) continue;
+                if (!s.attributes["\uC0C1\uD638\uBA85"]) continue;
+                const ent = h.entities[eid];
+                if (!ent || ent.device_id !== deviceId) continue;
+                trackers.push({ eid, ...s.attributes });
+              }
+            }
+          }
+          if (!centerLat && !trackers.length) return;
           if (!this._map) {
+            this._centerLat = centerLat;
+            this._centerLon = centerLon;
             this._trackers = trackers;
             this._draw();
           }
@@ -11475,6 +11492,23 @@ svg.leaflet-image-layer.leaflet-interactive path {\r
             width: auto !important;
             height: auto !important;
           }
+          .ouser {
+            background: transparent !important;
+            border: none !important;
+            width: 16px !important;
+            height: 16px !important;
+          }
+          .ouser::after {
+            content: '';
+            position: absolute;
+            width: 16px; height: 16px;
+            background: #ff9800;
+            border: 3px solid #fff;
+            border-radius: 50%;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            box-shadow: 0 1px 4px rgba(0,0,0,.4);
+          }
         </style>
         <div id="omap" style="${tileFilter}"></div>
       `;
@@ -11492,6 +11526,12 @@ svg.leaflet-image-layer.leaflet-interactive path {\r
             zoomOffset: import_leaflet.default.Browser.retina ? -1 : 0,
             transparent: true
           }).addTo(map);
+          if (this._centerLat != null) {
+            import_leaflet.default.marker([this._centerLat, this._centerLon], {
+              icon: import_leaflet.default.divIcon({ className: "ouser", iconSize: [16, 16], iconAnchor: [8, 8] })
+            }).addTo(map);
+            map.setView([this._centerLat, this._centerLon], zoom);
+          }
           this._markers = [];
           const bounds = [];
           for (const t of this._trackers) {
@@ -11513,7 +11553,9 @@ svg.leaflet-image-layer.leaflet-interactive path {\r
             this._markers.push(marker);
             bounds.push([lat, lon]);
           }
-          if (bounds.length) map.fitBounds(bounds, { padding: [30, 30] });
+          if (bounds.length && this._centerLat == null) {
+            map.fitBounds(bounds, { padding: [30, 30] });
+          }
           this._map = map;
           this._ro = new ResizeObserver(() => map.invalidateSize(false));
           this._ro.observe(c);
@@ -11534,13 +11576,33 @@ svg.leaflet-image-layer.leaflet-interactive path {\r
         }
         static getConfigElement() {
           const el = document.createElement("div");
-          el.style.padding = "8px";
-          el.style.color = "var(--secondary-text-color)";
-          el.innerHTML = "\uC0C1\uD638\uBA85\uC774 \uC788\uB294 \uBAA8\uB4E0 device_tracker \uC5D4\uD2F0\uD2F0\uB97C \uC790\uB3D9\uC73C\uB85C \uC9C0\uB3C4\uC5D0 \uD45C\uC2DC\uD569\uB2C8\uB2E4.";
-          el.setConfig = function() {
+          el.style.display = "flex";
+          el.style.flexDirection = "column";
+          el.style.gap = "8px";
+          const centerPick = document.createElement("ha-entity-picker");
+          centerPick.setAttribute("label", "\uC0AC\uC6A9\uC790 \uC704\uCE58 (\uD3EC\uCEE4\uC2F1)");
+          centerPick.style.display = "block";
+          el.appendChild(centerPick);
+          const opinetPick = document.createElement("ha-entity-picker");
+          opinetPick.setAttribute("label", "\uC624\uD53C\uB137 \uC8FC\uC720\uC18C");
+          opinetPick.style.display = "block";
+          el.appendChild(opinetPick);
+          el.setConfig = function(cfg) {
+            centerPick.value = cfg.center_tracker || "";
+            opinetPick.value = cfg.opinet_tracker || "";
           };
+          const fire = () => setTimeout(() => {
+            const ev = new Event("config-changed", { bubbles: true, composed: true });
+            ev.detail = { config: el.value };
+            el.dispatchEvent(ev);
+          }, 0);
+          centerPick.addEventListener("value-changed", fire);
+          opinetPick.addEventListener("value-changed", fire);
           Object.defineProperty(el, "value", { get() {
-            return { type: "custom:opinet-map-card" };
+            const v = { type: "custom:opinet-map-card" };
+            if (centerPick.value) v.center_tracker = centerPick.value;
+            if (opinetPick.value) v.opinet_tracker = opinetPick.value;
+            return v;
           } });
           return el;
         }
