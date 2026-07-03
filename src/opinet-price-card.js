@@ -201,11 +201,41 @@ if (!customElements.get('opinet-map-card')) {
       this.shadowRoot.innerHTML = `
         <style>${leafletCSS}</style>
         <style>
-          :host { display: block; width: 100%; height: 100%; }
+          :host {
+            display: block;
+            width: 100%;
+            height: 100%;
+            border-radius: var(--ha-card-border-radius, 12px);
+            overflow: hidden;
+            background: var(--ha-card-background, var(--card-background-color, #fff));
+            box-shadow: var(--ha-card-box-shadow, 0 1px 3px rgba(0,0,0,.12));
+          }
           .leaflet-container { background: transparent !important; }
           .map-tiles { filter: var(--vic-map-tiles-filter, none); }
           .leaflet-control-container { display: none; }
           #omap { height: 100%; width: 100%; background: transparent !important; }
+          .omarker {
+            background: transparent !important;
+            border: none !important;
+          }
+          .omarker::before {
+            content: '';
+            position: absolute;
+            width: 36px; height: 36px;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            background: radial-gradient(circle, transparent 0%, rgba(25,118,210,0.25) 100%);
+            border-radius: 50%;
+          }
+          .omarker::after {
+            content: '';
+            position: absolute;
+            width: 12px; height: 12px;
+            background: #1976d2;
+            border-radius: 50%;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+          }
         </style>
         <div id="omap" style="${tileFilter}"></div>
       `;
