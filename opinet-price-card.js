@@ -54,14 +54,14 @@ function findStations(hass, deviceArg) {
 
 function findRefreshButton(hass) {
   for (const eid of Object.keys(hass.states)) {
-    if (eid.startsWith('button.opinet_price_refresh')) return eid;
+    if (eid.startsWith('button.') && /opine[ts]/.test(eid)) return eid;
   }
   return null;
 }
 
 function findUsage(hass) {
   for (const eid of Object.keys(hass.states)) {
-    if (eid.startsWith('sensor.opinet_price_api_usage')) return eid;
+    if (eid.startsWith('sensor.') && /opine[ts]/.test(eid) && /api|sayong|usage/i.test(eid)) return eid;
   }
   return null;
 }
@@ -134,17 +134,34 @@ if (!customElements.get('opinet-rank-card')) {
       const titleInp = el.querySelectorAll('paper-input')[0];
       const usageSw = el.querySelector('ha-switch');
 
-      // device picker
+      // device picker — needs manual hass injection (ha-device-picker uses @property, not @consume)
       const picker = document.createElement('ha-device-picker');
       picker.setAttribute('label', '기기 선택');
       picker.style.display = 'block';
       picker.style.marginTop = '4px';
       el.appendChild(picker);
 
+      // inject hass once picker is in DOM
+      const injectHass = () => {
+        const ha = document.querySelector('home-assistant');
+        if (ha && ha.hass) {
+          picker.hass = ha.hass;
+          if (picker.requestUpdate) picker.requestUpdate();
+          return true;
+        }
+        return false;
+      };
+      if (!injectHass()) {
+        new MutationObserver(() => { injectHass(); }).observe(document.body, { childList: true, subtree: true });
+      }
+
       el.setConfig = function(cfg) {
         titleInp.value = cfg.title || '⛽ 오피넷 주유소';
         usageSw.checked = cfg.show_usage !== false;
-        picker.value = cfg.device || '';
+        // delay — picker might not have hass yet
+        const setDev = () => { picker.value = cfg.device || ''; };
+        if (picker.hass) setDev();
+        else setTimeout(setDev, 300);
       };
 
       const fireChange = () => el.dispatchEvent(new Event('config-changed', { bubbles: true, composed: true }));
