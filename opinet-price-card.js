@@ -170,7 +170,8 @@ if (!customElements.get('opinet-map-card')) {
     _initMap() {
       if (this._map) return;
       if (!this.querySelector('.omap')) {
-        this.innerHTML = '<div class="omap" style="height:400px;overflow:hidden;"></div>';
+        // ponytail: outer clips overflow, inner is Leaflet target (no overflow:hidden on Leaflet)
+        this.innerHTML = '<div style="height:400px;overflow:hidden;"><div class="omap" style="height:100%;"></div></div>';
       }
       const container = this.querySelector('.omap');
       if (!container || !container.offsetParent) { setTimeout(() => this._initMap(), 100); return; }
