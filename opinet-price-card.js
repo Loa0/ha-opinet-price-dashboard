@@ -200,7 +200,7 @@ if (!customElements.get('opinet-map-card')) {
       if (this._map) return;
       // render container once
       if (!this.querySelector('.omc')) {
-        this.innerHTML = '<ha-card><div class="omc" style="height:400px;"></div></ha-card>';
+        this.innerHTML = '<ha-card><div class="omc" style="height:400px;overflow:hidden;"></div></ha-card>';
       }
       // ponytail: DOM-ready retry (ha-map-card uses offsetParent check)
       const container = this.querySelector('.omc');
@@ -217,6 +217,8 @@ if (!customElements.get('opinet-map-card')) {
       }
       this._map = L.map(container, { attributionControl: false }).setView([36.5, 127.5], 7);
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 18 }).addTo(this._map);
+      // ponytail: invalidateSize after render settle (fixes tile clipping)
+      setTimeout(() => this._map && this._map.invalidateSize(), 300);
       // ponytail: ha-map-card ResizeObserver → invalidateSize on resize (fixes broken tiles)
       this._obs = new ResizeObserver(() => this._map && this._map.invalidateSize());
       this._obs.observe(container);
