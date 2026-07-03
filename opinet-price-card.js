@@ -135,7 +135,6 @@ if (!customElements.get('opinet-rank-card')) {
       el.style.gap = '8px';
       el.innerHTML = `
         <input placeholder="제목" value="⛽ 오피넷 주유소" style="width:100%;padding:8px;box-sizing:border-box;margin-bottom:8px;font-size:14px;border:1px solid var(--divider-color,#ccc);border-radius:4px;background:var(--card-background-color,#fff);color:var(--primary-text-color,#000)">
-        <input placeholder="기기 ID (선택)" style="width:100%;padding:8px;box-sizing:border-box;margin-bottom:8px;font-size:14px;border:1px solid var(--divider-color,#ccc);border-radius:4px;background:var(--card-background-color,#fff);color:var(--primary-text-color,#000)">
         <ha-formfield label="API 사용량 표시">
           <ha-switch checked></ha-switch>
         </ha-formfield>
@@ -144,13 +143,20 @@ if (!customElements.get('opinet-rank-card')) {
         </ha-formfield>
       `;
       const titleInp = el.querySelectorAll('input')[0];
-      const devInp = el.querySelectorAll('input')[1];
       const usageSw = el.querySelectorAll('ha-switch')[0];
       const favSw = el.querySelectorAll('ha-switch')[1];
 
+      // ponytail: ha-entity-picker uses @consume → works in plain div (unlike ha-device-picker)
+      const devPick = document.createElement('ha-entity-picker');
+      devPick.setAttribute('domain-filter', 'device_tracker');
+      devPick.setAttribute('label', '엔티티 선택');
+      devPick.style.display = 'block';
+      devPick.style.marginBottom = '8px';
+      el.insertBefore(devPick, el.querySelector('ha-formfield'));
+
       el.setConfig = function(cfg) {
         titleInp.value = cfg.title || '⛽ 오피넷 주유소';
-        devInp.value = cfg.device || '';
+        devPick.value = cfg.device || '';
         usageSw.checked = cfg.show_usage !== false;
         favSw.checked = cfg.show_fav === true;
       };
@@ -164,13 +170,13 @@ if (!customElements.get('opinet-rank-card')) {
         }, 0);
       };
       titleInp.addEventListener('input', fireChange);
-      devInp.addEventListener('input', fireChange);
+      devPick.addEventListener('value-changed', fireChange);
       usageSw.addEventListener('click', fireChange);
       favSw.addEventListener('click', fireChange);
 
       Object.defineProperty(el, 'value', { get() {
         const v = { type: 'custom:opinet-rank-card', title: titleInp.value, show_usage: usageSw.checked, show_fav: favSw.checked };
-        if (devInp.value) v.device = devInp.value;
+        if (devPick.value) v.device = devPick.value;
         return v;
       }});
 
