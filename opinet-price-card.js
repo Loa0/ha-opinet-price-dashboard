@@ -25,7 +25,18 @@ function loadLeaflet(cb) {
 }
 
 // ===== helpers =====
-function findStations(hass, deviceId) {
+function findStations(hass, deviceArg) {
+  // resolve device_id from entity_id or direct device_id
+  let deviceId = null;
+  if (deviceArg && hass.entities) {
+    const ent = hass.entities[deviceArg];
+    if (ent) {
+      deviceId = ent.device_id || null;
+    } else {
+      // might already be a device_id
+      deviceId = deviceArg;
+    }
+  }
   const list = [];
   for (const [eid, s] of Object.entries(hass.states)) {
     if (!eid.startsWith('sensor.')) continue;
@@ -119,26 +130,32 @@ if (!customElements.get('opinet-rank-card')) {
         <ha-formfield label="API 사용량 표시">
           <ha-switch checked></ha-switch>
         </ha-formfield>
-        <paper-input label="Device ID (선택)" placeholder="특정 기기만 표시 시 입력"></paper-input>
       `;
       const titleInp = el.querySelectorAll('paper-input')[0];
       const usageSw = el.querySelector('ha-switch');
-      const deviceInp = el.querySelectorAll('paper-input')[1];
+
+      // device picker
+      const picker = document.createElement('ha-entity-picker');
+      picker.setAttribute('domain-filter', 'device_tracker');
+      picker.setAttribute('label', '디바이스 (선택)');
+      picker.style.display = 'block';
+      picker.style.marginTop = '4px';
+      el.appendChild(picker);
 
       el.setConfig = function(cfg) {
         titleInp.value = cfg.title || '⛽ 오피넷 주유소';
         usageSw.checked = cfg.show_usage !== false;
-        deviceInp.value = cfg.device || '';
+        picker.value = cfg.device || '';
       };
 
       const fireChange = () => el.dispatchEvent(new Event('config-changed', { bubbles: true, composed: true }));
       titleInp.addEventListener('value-changed', fireChange);
       usageSw.addEventListener('change', fireChange);
-      deviceInp.addEventListener('value-changed', fireChange);
+      picker.addEventListener('value-changed', fireChange);
 
       Object.defineProperty(el, 'value', { get() {
         const v = { title: titleInp.value, show_usage: usageSw.checked };
-        if (deviceInp.value) v.device = deviceInp.value;
+        if (picker.value) v.device = picker.value;
         return v;
       }});
 
