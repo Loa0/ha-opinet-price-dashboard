@@ -202,7 +202,10 @@ if (!customElements.get('opinet-map-card')) {
     _drawImpl() {
       this._destroy();
       this.innerHTML = '';
-      const card = document.createElement('ha-card');
+      // 카드 스타일 div (ha-card shadow DOM 회피)
+      const card = document.createElement('div');
+      card.style.cssText = 'background:var(--ha-card-background,var(--card-background-color,#fff));border-radius:var(--ha-card-border-radius,12px);box-shadow:var(--ha-card-box-shadow,0 1px 3px rgba(0,0,0,.12));overflow:hidden;';
+      // Leaflet container
       const container = document.createElement('div');
       container.style.cssText = 'height:400px;width:100%;';
       card.appendChild(container);
