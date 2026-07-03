@@ -339,8 +339,6 @@ if (!customElements.get('opinet-map-card')) {
             box-shadow: 0 1px 3px rgba(0,0,0,.3);
             border: none !important;
             text-align: center;
-            transform: translate(-50%, -100%) !important;
-            margin-top: -6px;
           }
           .ouser {
             background: transparent !important;
