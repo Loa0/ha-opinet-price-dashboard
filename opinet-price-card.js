@@ -11565,8 +11565,7 @@ svg.leaflet-image-layer.leaflet-interactive path {\r
             white-space: nowrap;
             box-shadow: 0 1px 3px rgba(0,0,0,.3);
             border: none !important;
-            width: auto !important;
-            height: auto !important;
+            text-align: center;
           }
           .ouser {
             background: transparent !important;
@@ -11618,9 +11617,7 @@ svg.leaflet-image-layer.leaflet-interactive path {\r
             const addr = t["\uC8FC\uC18C"] || "";
             const icon = import_leaflet.default.divIcon({
               className: "oprice",
-              html: price,
-              iconSize: null,
-              iconAnchor: null
+              html: price
             });
             const marker = import_leaflet.default.marker([lat, lon], { icon }).addTo(map);
             if (price || name) {

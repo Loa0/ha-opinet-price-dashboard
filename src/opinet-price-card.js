@@ -338,8 +338,7 @@ if (!customElements.get('opinet-map-card')) {
             white-space: nowrap;
             box-shadow: 0 1px 3px rgba(0,0,0,.3);
             border: none !important;
-            width: auto !important;
-            height: auto !important;
+            text-align: center;
           }
           .ouser {
             background: transparent !important;
@@ -398,8 +397,6 @@ if (!customElements.get('opinet-map-card')) {
         const icon = L.divIcon({
           className: 'oprice',
           html: price,
-          iconSize: null,
-          iconAnchor: null,
         });
         const marker = L.marker([lat, lon], { icon }).addTo(map);
         if (price || name) {
