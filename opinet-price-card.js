@@ -5,25 +5,6 @@
 if (window.__opinetDashboardLoaded) return;
 window.__opinetDashboardLoaded = true;
 
-// ===== Leaflet lazy loader =====
-let _leafletLoading = false;
-let _leafletReady = false;
-function loadLeaflet(cb) {
-  if (_leafletReady) { cb(); return; }
-  if (_leafletLoading) { setTimeout(() => loadLeaflet(cb), 200); return; }
-  _leafletLoading = true;
-  const css = document.createElement('link');
-  css.rel = 'stylesheet';
-  css.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
-  css.onload = () => {
-    const js = document.createElement('script');
-    js.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
-    js.onload = () => { _leafletReady = true; cb(); };
-    document.head.appendChild(js);
-  };
-  document.head.appendChild(css);
-}
-
 // ===== helpers =====
 function findStations(hass, deviceArg, includeFav) {
   // resolve device_id from entity_id or direct device_id
@@ -64,15 +45,6 @@ function findUsage(hass) {
     if (eid.startsWith('sensor.') && /opine[ts]/.test(eid) && /api|sayong|usage/i.test(eid)) return eid;
   }
   return null;
-}
-
-function findTrackers(hass) {
-  const list = [];
-  for (const [eid, s] of Object.entries(hass.states)) {
-    if (!eid.startsWith('device_tracker.')) continue;
-    if (s.attributes['상호명']) list.push({ eid, ...s.attributes });
-  }
-  return list;
 }
 
 // ================================================================
@@ -189,55 +161,30 @@ if (!customElements.get('opinet-rank-card')) {
 }
 
 // ================================================================
-// Map Card
+// Map Card — uses HA's built-in Leaflet (window.L from hui-map-card)
 // ================================================================
 if (!customElements.get('opinet-map-card')) {
   class OpinetMapCard extends HTMLElement {
-    // ponytail: ha-map-card firstUpdated pattern — init-once with DOM-ready retry
-    setConfig(c) { this._cfg = { ...c }; delete this._map; }
+    setConfig(c) { this._cfg = { ...c }; }
     set hass(h) { this._hass = h; if (this._cfg) this._initMap(); }
     _initMap() {
       if (this._map) return;
-      // render container once — outer clips, inner is Leaflet target
-      if (!this.querySelector('.omw')) {
-        this.innerHTML = '<div class="omw" style="height:400px;overflow:hidden;"><div class="omap" style="height:100%;"></div></div>';
+      if (!this.querySelector('.omap')) {
+        this.innerHTML = '<div class="omap" style="height:400px;"></div>';
       }
-      const wrapper = this.querySelector('.omw');
       const container = this.querySelector('.omap');
-      this._tries = (this._tries || 0) + 1;
-      if (!container || !container.offsetParent) {
-        if (this._tries < 50) { setTimeout(() => this._initMap(), 100); }
-        return;
-      }
-      // ponytail: Leaflet ready check + init — clear old panes first
-      if (typeof L === 'undefined') {
-        if (!this._leafLoading) { this._leafLoading = true; loadLeaflet(() => this._initMap()); }
-        setTimeout(() => this._initMap(), 200);
-        return;
-      }
-      container.innerHTML = '';  // nuke old Leaflet panes
-      this._map = L.map(container, { attributionControl: false }).setView([36.5, 127.5], 7);
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 18 }).addTo(this._map);
-      // invalidate after tiles load + after layout settles
-      this._map.whenReady(() => setTimeout(() => this._map.invalidateSize(), 100));
-      // ResizeObserver on wrapper (outer clipping container)
-      if (this._obs) this._obs.disconnect();
-      this._obs = new ResizeObserver(() => { if (this._map) this._map.invalidateSize(); });
-      this._obs.observe(wrapper);
-      // markers
-      const trackers = findTrackers(this._hass);
-      const filtered = (!this._cfg.devices || !this._cfg.devices.length)
-        ? trackers
-        : trackers.filter(t => (new Set(this._cfg.devices)).has(t.eid));
-      let centerLat = null, centerLon = null;
-      if (this._cfg.center) {
-        const cs = this._hass.states[this._cfg.center];
-        if (cs && cs.attributes && cs.attributes.latitude != null) {
-          centerLat = cs.attributes.latitude; centerLon = cs.attributes.longitude;
-        }
-      }
+      if (!container || !container.offsetParent) { setTimeout(() => this._initMap(), 100); return; }
+      // ponytail: HA already loads Leaflet via hui-map-card — use window.L, no CDN
+      if (typeof L === 'undefined') { setTimeout(() => this._initMap(), 200); return; }
+      this._map = L.map(container, { attributionControl: false }).setView([36.5, 127.5], 14);
+      // ponytail: CartoDB tiles (same as HA setupLeafletMap)
+      L.tileLayer('https://basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}' + (L.Browser.retina ? '@2x' : '') + '.png', {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a>, &copy; <a href="https://carto.com/attributions">CARTO</a>',
+        maxZoom: 20,
+      }).addTo(this._map);
+      const trackers = this._findTrackers();
       const bounds = [];
-      for (const t of filtered) {
+      for (const t of trackers) {
         const lat = t.attributes ? t.attributes.latitude : t.latitude;
         const lon = t.attributes ? t.attributes.longitude : t.longitude;
         if (lat == null || lon == null) continue;
@@ -254,55 +201,19 @@ if (!customElements.get('opinet-map-card')) {
           .bindPopup('<b>' + name + '</b><br>' + label + '<br>' + addr);
         bounds.push([lat, lon]);
       }
-      if (centerLat != null) this._map.setView([centerLat, centerLon], 14);
-      else if (bounds.length) this._map.fitBounds(bounds, { padding: [20,20] });
+      if (bounds.length) this._map.fitBounds(bounds, { padding: [20,20] });
+      // ponytail: invalidate on resize (ha-map-card pattern)
+      new ResizeObserver(() => this._map && this._map.invalidateSize()).observe(container);
+    }
+    _findTrackers() {
+      const list = [];
+      for (const [eid, s] of Object.entries(this._hass.states)) {
+        if (!eid.startsWith('device_tracker.')) continue;
+        if (s.attributes['상호명']) list.push({ eid, ...s.attributes });
+      }
+      return list;
     }
     getCardSize() { return 6; }
-    disconnectedCallback() {
-      // ponytail: ha-map-card cleanup pattern
-      if (this._obs) { this._obs.disconnect(); this._obs = null; }
-      if (this._map) { this._map.remove(); this._map = null; }
-    }
-    // ponytail: copy-paste-adapt from rank card editor pattern
-    static getConfigElement() {
-      const el = document.createElement('div');
-      el.style.display = 'flex';
-      el.style.flexDirection = 'column';
-      el.style.gap = '8px';
-
-      const centerPick = document.createElement('ha-entity-picker');
-      centerPick.setAttribute('label', '기준 위치');
-      centerPick.style.display = 'block';
-      el.appendChild(centerPick);
-
-      const devPick = document.createElement('ha-entity-picker');
-      devPick.setAttribute('label', '주유소 마커');
-      devPick.style.display = 'block';
-      el.appendChild(devPick);
-
-      el.setConfig = function(cfg) {
-        centerPick.value = cfg.center || '';
-        devPick.value = (cfg.devices || []).join(',');
-      };
-
-      const fireChange = () => setTimeout(() => {
-        const ev = new Event('config-changed', { bubbles: true, composed: true });
-        ev.detail = { config: el.value };
-        el.dispatchEvent(ev);
-      }, 0);
-      centerPick.addEventListener('value-changed', fireChange);
-      devPick.addEventListener('value-changed', fireChange);
-
-      Object.defineProperty(el, 'value', { get() {
-        const v = { type: 'custom:opinet-map-card' };
-        if (centerPick.value) v.center = centerPick.value;
-        if (devPick.value) v.devices = devPick.value.split(',').filter(Boolean);
-        return v;
-      }});
-
-      return el;
-    }
-    static getStubConfig() { return {}; }
   }
   customElements.define('opinet-map-card', OpinetMapCard);
 }
