@@ -10464,11 +10464,22 @@ svg.leaflet-image-layer.leaflet-interactive path {\r
               this._map.remove();
               this._map = null;
             }
-            const map = import_leaflet.default.map(container, { attributionControl: false, zoomControl: false }).setView([36.5, 127.5], 14);
-            import_leaflet.default.tileLayer("https://basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}" + (import_leaflet.default.Browser.retina ? "@2x.png" : ".png"), {
+            const retina = import_leaflet.default.Browser.retina;
+            const map = import_leaflet.default.map(container, {
+              attributionControl: false,
+              zoomControl: false,
+              fadeAnimation: true,
+              zoomAnimation: true
+            }).setView([36.5, 127.5], 14);
+            import_leaflet.default.tileLayer("https://basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}" + (retina ? "@2x.png" : ".png"), {
               attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a>, &copy; <a href="https://carto.com/attributions">CARTO</a>',
               subdomains: "abcd",
-              maxZoom: 20
+              maxZoom: 20,
+              detectRetina: true,
+              tileSize: retina ? 512 : 256,
+              zoomOffset: retina ? -1 : 0,
+              transparent: true,
+              className: "map-tiles"
             }).addTo(map);
             this._map = map;
             this._addMarkers();

@@ -231,15 +231,25 @@ if (!customElements.get('opinet-map-card')) {
       const initMap = () => {
         if (!container.isConnected || !container.offsetParent) { setTimeout(initMap, 100); return; }
         if (this._map) { this._map.remove(); this._map = null; }
-        const map = L.map(container, { attributionControl: false, zoomControl: false }).setView([36.5, 127.5], 14);
-        L.tileLayer('https://basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}' + (L.Browser.retina ? '@2x.png' : '.png'), {
+        const retina = L.Browser.retina;
+        const map = L.map(container, {
+          attributionControl: false,
+          zoomControl: false,
+          fadeAnimation: true,
+          zoomAnimation: true,
+        }).setView([36.5, 127.5], 14);
+        L.tileLayer('https://basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}' + (retina ? '@2x.png' : '.png'), {
           attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a>, &copy; <a href="https://carto.com/attributions">CARTO</a>',
           subdomains: 'abcd',
           maxZoom: 20,
+          detectRetina: true,
+          tileSize: retina ? 512 : 256,
+          zoomOffset: retina ? -1 : 0,
+          transparent: true,
+          className: 'map-tiles',
         }).addTo(map);
         this._map = map;
         this._addMarkers();
-        // Fix2: invalidateSize(false) — no debounce
         setTimeout(() => map.invalidateSize(false), 100);
       };
       setTimeout(initMap, 50);
