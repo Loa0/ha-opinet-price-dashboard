@@ -11284,7 +11284,14 @@ svg.leaflet-image-layer.leaflet-interactive path {\r
       for (const [eid, s] of Object.entries(hass.states)) {
         if (!eid.startsWith("sensor.")) continue;
         if (s.attributes["\uC21C\uC704"] == null) {
-          if (includeFav && /jeulgyeocajgi/.test(eid)) favs.push({ eid, ...s.attributes });
+          if (includeFav && s.attributes["\uC8FC\uC720\uC18C\uBA85"]) {
+            if (!deviceId || !hass.entities) {
+              favs.push({ eid, ...s.attributes });
+            } else {
+              const ent = hass.entities[eid];
+              if (ent && ent.device_id === deviceId) favs.push({ eid, ...s.attributes });
+            }
+          }
           continue;
         }
         if (deviceId && hass.entities) {
