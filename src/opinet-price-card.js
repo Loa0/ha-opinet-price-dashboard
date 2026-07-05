@@ -16,6 +16,23 @@ if (!document.getElementById('leaflet-css')) {
   document.head.appendChild(style);
 }
 
+// Inject popup CSS globally (not per-card)
+if (!document.getElementById('opinet-popup-css')) {
+  const ps = document.createElement('style');
+  ps.id = 'opinet-popup-css';
+  ps.textContent = '.opinet-popup-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.5);z-index:2147483647;display:flex;align-items:center;justify-content:center}' +
+    '.opinet-popup{background:var(--card-background-color,#fff);color:var(--primary-text-color,#000);border-radius:16px;padding:24px;min-width:280px;max-width:90vw;max-height:90vh;overflow-y:auto;text-align:center;position:relative}' +
+    '.opinet-popup-close{position:absolute;top:8px;right:12px;background:none;border:none;font-size:20px;cursor:pointer;color:var(--secondary-text-color)}' +
+    '.opinet-popup-name{font-size:1.2em;font-weight:600;margin-bottom:4px}' +
+    '.opinet-popup-price{font-size:1.6em;font-weight:700;color:var(--primary-color,#1976d2);margin-bottom:8px}' +
+    '.opinet-popup-addr{font-size:.85em;color:var(--secondary-text-color);cursor:pointer;padding:4px 8px;border-radius:6px;transition:background .3s;margin-bottom:16px}' +
+    '.opinet-popup-nav{display:flex;gap:12px;justify-content:center;flex-wrap:wrap}' +
+    '.onb{display:flex;flex-direction:column;align-items:center;gap:4px;background:var(--card-background-color,#fff);border:1px solid var(--divider-color,#e0e0e0);border-radius:10px;padding:8px;cursor:pointer;min-width:64px;transition:background .2s}' +
+    '.onb:hover{background:var(--table-row-hover-background-color,rgba(0,0,0,.04))}' +
+    '.onb span{font-size:.7em;color:var(--secondary-text-color)}';
+  document.head.appendChild(ps);
+}
+
 // ===== helpers =====
 function findStations(hass, deviceArg, includeFav) {
   let deviceId = null;
@@ -82,6 +99,10 @@ function copyAddress(addr) {
 }
 
 function showStationPopup(hass, station) {
+  // remove any existing popup first
+  const old = document.querySelector('.opinet-popup-overlay');
+  if (old) old.remove();
+
   const name = station['주유소명'] || station['상호명'] || '';
   const price = station['가격'] ? Number(station['가격']).toLocaleString() + '원' : '';
   const addr = station['주소'] || '';
@@ -187,17 +208,7 @@ if (!customElements.get('opinet-rank-card')) {
       </ha-card>`;
       if (!this.querySelector('style')) {
         const st = document.createElement('style');
-        st.textContent = '.oh{display:flex;justify-content:space-between;align-items:center;padding:12px 16px 8px;font-size:1.1em;font-weight:500} .ot{width:100%;border-collapse:collapse;font-size:.95em;padding:0 8px 8px} .ow{cursor:pointer;border-bottom:1px solid var(--divider-color,#e0e0e0)} .ow:hover{background:var(--table-row-hover-background-color,rgba(0,0,0,.04))} .or1{width:32px;text-align:center;color:var(--secondary-text-color);padding:6px 4px} .or2{padding:6px 4px} .or3{text-align:right;font-weight:600;padding:6px 4px} .or4{text-align:right;color:var(--secondary-text-color);font-size:.85em;padding:6px 4px} .ous{padding:4px 16px 0;font-size:.78em;color:var(--secondary-text-color);text-align:right}' +
-          '.opinet-popup-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.5);z-index:2147483647;display:flex;align-items:center;justify-content:center}' +
-          '.opinet-popup{background:var(--card-background-color,#fff);color:var(--primary-text-color,#000);border-radius:16px;padding:24px;min-width:280px;max-width:90vw;max-height:90vh;overflow-y:auto;text-align:center;position:relative}' +
-          '.opinet-popup-close{position:absolute;top:8px;right:12px;background:none;border:none;font-size:20px;cursor:pointer;color:var(--secondary-text-color)}' +
-          '.opinet-popup-name{font-size:1.2em;font-weight:600;margin-bottom:4px}' +
-          '.opinet-popup-price{font-size:1.6em;font-weight:700;color:var(--primary-color,#1976d2);margin-bottom:8px}' +
-          '.opinet-popup-addr{font-size:.85em;color:var(--secondary-text-color);cursor:pointer;padding:4px 8px;border-radius:6px;transition:background .3s;margin-bottom:16px}' +
-          '.opinet-popup-nav{display:flex;gap:12px;justify-content:center;flex-wrap:wrap}' +
-          '.onb{display:flex;flex-direction:column;align-items:center;gap:4px;background:var(--card-background-color,#fff);border:1px solid var(--divider-color,#e0e0e0);border-radius:10px;padding:8px;cursor:pointer;min-width:64px;transition:background .2s}' +
-          '.onb:hover{background:var(--table-row-hover-background-color,rgba(0,0,0,.04))}' +
-          '.onb span{font-size:.7em;color:var(--secondary-text-color)}';
+        st.textContent = '.oh{display:flex;justify-content:space-between;align-items:center;padding:12px 16px 8px;font-size:1.1em;font-weight:500} .ot{width:100%;border-collapse:collapse;font-size:.95em;padding:0 8px 8px} .ow{cursor:pointer;border-bottom:1px solid var(--divider-color,#e0e0e0)} .ow:hover{background:var(--table-row-hover-background-color,rgba(0,0,0,.04))} .or1{width:32px;text-align:center;color:var(--secondary-text-color);padding:6px 4px} .or2{padding:6px 4px} .or3{text-align:right;font-weight:600;padding:6px 4px} .or4{text-align:right;color:var(--secondary-text-color);font-size:.85em;padding:6px 4px} .ous{padding:4px 16px 0;font-size:.78em;color:var(--secondary-text-color);text-align:right}';
         this.appendChild(st);
       }
       const rf = this.querySelector('.oref');
