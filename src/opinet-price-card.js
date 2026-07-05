@@ -20,13 +20,14 @@ if (!document.getElementById('leaflet-css')) {
 if (!document.getElementById('opinet-popup-css')) {
   const ps = document.createElement('style');
   ps.id = 'opinet-popup-css';
-  ps.textContent = '.opinet-popup-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.5);z-index:2147483647;display:flex;align-items:center;justify-content:center}' +
-    '.opinet-popup{background:var(--card-background-color,#fff);color:var(--primary-text-color,#000);border-radius:16px;padding:24px;min-width:280px;max-width:90vw;max-height:90vh;overflow-y:auto;text-align:center;position:relative}' +
-    '.opinet-popup-close{position:absolute;top:8px;right:12px;background:none;border:none;font-size:20px;cursor:pointer;color:var(--secondary-text-color)}' +
-    '.opinet-popup-name{font-size:1.2em;font-weight:600;margin-bottom:4px}' +
-    '.opinet-popup-price{font-size:1.6em;font-weight:700;color:var(--primary-color,#1976d2);margin-bottom:8px}' +
-    '.opinet-popup-addr{font-size:.85em;color:var(--secondary-text-color);cursor:pointer;padding:4px 8px;border-radius:6px;transition:background .3s;margin-bottom:16px}' +
-    '.opinet-popup-nav{display:flex;gap:12px;justify-content:center;flex-wrap:wrap}' +
+  ps.textContent = 'dialog.opinet-dialog{padding:0;border:none;border-radius:16px;background:var(--card-background-color,#fff);color:var(--primary-text-color,#000);max-width:90vw;max-height:90vh;overflow:visible}' +
+    'dialog.opinet-dialog::backdrop{background:rgba(0,0,0,.5)}' +
+    '.opinet-dialog-inner{padding:24px;text-align:center;min-width:280px}' +
+    '.opinet-dialog-close{position:absolute;top:8px;right:12px;background:none;border:none;font-size:20px;cursor:pointer;color:var(--secondary-text-color)}' +
+    '.opinet-dialog-name{font-size:1.2em;font-weight:600;margin-bottom:4px}' +
+    '.opinet-dialog-price{font-size:1.6em;font-weight:700;color:var(--primary-color,#1976d2);margin-bottom:8px}' +
+    '.opinet-dialog-addr{font-size:.85em;color:var(--secondary-text-color);cursor:pointer;padding:4px 8px;border-radius:6px;transition:background .3s;margin-bottom:16px}' +
+    '.opinet-dialog-nav{display:flex;gap:12px;justify-content:center;flex-wrap:wrap}' +
     '.onb{display:flex;flex-direction:column;align-items:center;gap:4px;background:var(--card-background-color,#fff);border:1px solid var(--divider-color,#e0e0e0);border-radius:10px;padding:8px;cursor:pointer;min-width:64px;transition:background .2s}' +
     '.onb:hover{background:var(--table-row-hover-background-color,rgba(0,0,0,.04))}' +
     '.onb span{font-size:.7em;color:var(--secondary-text-color)}';
@@ -82,9 +83,14 @@ const NAV = [
 ];
 
 function openNav(appUrl, webUrl) {
+  const a = document.createElement('a');
+  a.href = appUrl;
+  a.target = '_self';
   const t0 = Date.now();
-  window.location.href = appUrl;
-  setTimeout(() => { if (Date.now() - t0 < 1500) window.location.href = webUrl; }, 1000);
+  a.click();
+  setTimeout(() => {
+    if (Date.now() - t0 < 2000) window.open(webUrl, '_blank');
+  }, 1000);
 }
 
 function copyAddress(addr) {
@@ -99,8 +105,8 @@ function copyAddress(addr) {
 }
 
 function showStationPopup(hass, station) {
-  // remove any existing popup first
-  const old = document.querySelector('.opinet-popup-overlay');
+  // remove any existing dialog first
+  const old = document.querySelector('.opinet-dialog');
   if (old) old.remove();
 
   const name = station['주유소명'] || station['상호명'] || '';
@@ -115,22 +121,20 @@ function showStationPopup(hass, station) {
     return `<button class="onb" data-nav="${i}" data-app="${appUrl.replace(/"/g,'&quot;')}" data-web="${webUrl.replace(/"/g,'&quot;')}"><img src="${n.icon}" width="48" height="48" alt="${n.name}"><span>${n.name}</span></button>`;
   }).join('');
 
-  const popup = document.createElement('div');
-  popup.className = 'opinet-popup-overlay';
-  popup.innerHTML = `<div class="opinet-popup">
-    <button class="opinet-popup-close">✕</button>
-    <div class="opinet-popup-name">${name}</div>
-    <div class="opinet-popup-price">${price}</div>
-    <div class="opinet-popup-addr">${addr} <span style="font-size:.7em">📋</span></div>
-    <div class="opinet-popup-nav">${navBtns}</div>
-  </div>`;
+  const dialog = document.createElement('dialog');
+  dialog.className = 'opinet-dialog';
+  dialog.innerHTML = '<div class="opinet-dialog-inner">' +
+    '<button class="opinet-dialog-close">✕</button>' +
+    '<div class="opinet-dialog-name">' + name + '</div>' +
+    '<div class="opinet-dialog-price">' + price + '</div>' +
+    '<div class="opinet-dialog-addr">' + addr + ' <span style="font-size:.7em">📋</span></div>' +
+    '<div class="opinet-dialog-nav">' + navBtns + '</div>' +
+    '</div>';
 
-  // close button
-  popup.querySelector('.opinet-popup-close').onclick = () => popup.remove();
-  // backdrop click
-  popup.onclick = (e) => { if (e.target === popup) popup.remove(); };
-  // address copy
-  popup.querySelector('.opinet-popup-addr').onclick = function() {
+  dialog.querySelector('.opinet-dialog-close').onclick = () => dialog.close();
+  dialog.onclick = (e) => { if (e.target === dialog) dialog.close(); };
+  dialog.onclose = () => dialog.remove();
+  dialog.querySelector('.opinet-dialog-addr').onclick = function() {
     const a = addr;
     if (navigator.clipboard) {
       navigator.clipboard.writeText(a).catch(() => {});
@@ -143,15 +147,15 @@ function showStationPopup(hass, station) {
     this.style.background = 'var(--success-color,#4caf50)';
     setTimeout(() => { this.style.background = ''; }, 600);
   };
-  // nav buttons
-  popup.querySelectorAll('.onb').forEach(btn => {
+  dialog.querySelectorAll('.onb').forEach(btn => {
     btn.onclick = (e) => {
       e.stopPropagation();
       openNav(btn.dataset.app, btn.dataset.web);
     };
   });
 
-  document.body.appendChild(popup);
+  document.body.appendChild(dialog);
+  dialog.showModal();
 }
 
 function findRefreshButton(hass) {

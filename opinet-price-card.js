@@ -11276,7 +11276,7 @@ svg.leaflet-image-layer.leaflet-interactive path {\r
     if (!document.getElementById("opinet-popup-css")) {
       const ps = document.createElement("style");
       ps.id = "opinet-popup-css";
-      ps.textContent = ".opinet-popup-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.5);z-index:2147483647;display:flex;align-items:center;justify-content:center}.opinet-popup{background:var(--card-background-color,#fff);color:var(--primary-text-color,#000);border-radius:16px;padding:24px;min-width:280px;max-width:90vw;max-height:90vh;overflow-y:auto;text-align:center;position:relative}.opinet-popup-close{position:absolute;top:8px;right:12px;background:none;border:none;font-size:20px;cursor:pointer;color:var(--secondary-text-color)}.opinet-popup-name{font-size:1.2em;font-weight:600;margin-bottom:4px}.opinet-popup-price{font-size:1.6em;font-weight:700;color:var(--primary-color,#1976d2);margin-bottom:8px}.opinet-popup-addr{font-size:.85em;color:var(--secondary-text-color);cursor:pointer;padding:4px 8px;border-radius:6px;transition:background .3s;margin-bottom:16px}.opinet-popup-nav{display:flex;gap:12px;justify-content:center;flex-wrap:wrap}.onb{display:flex;flex-direction:column;align-items:center;gap:4px;background:var(--card-background-color,#fff);border:1px solid var(--divider-color,#e0e0e0);border-radius:10px;padding:8px;cursor:pointer;min-width:64px;transition:background .2s}.onb:hover{background:var(--table-row-hover-background-color,rgba(0,0,0,.04))}.onb span{font-size:.7em;color:var(--secondary-text-color)}";
+      ps.textContent = "dialog.opinet-dialog{padding:0;border:none;border-radius:16px;background:var(--card-background-color,#fff);color:var(--primary-text-color,#000);max-width:90vw;max-height:90vh;overflow:visible}dialog.opinet-dialog::backdrop{background:rgba(0,0,0,.5)}.opinet-dialog-inner{padding:24px;text-align:center;min-width:280px}.opinet-dialog-close{position:absolute;top:8px;right:12px;background:none;border:none;font-size:20px;cursor:pointer;color:var(--secondary-text-color)}.opinet-dialog-name{font-size:1.2em;font-weight:600;margin-bottom:4px}.opinet-dialog-price{font-size:1.6em;font-weight:700;color:var(--primary-color,#1976d2);margin-bottom:8px}.opinet-dialog-addr{font-size:.85em;color:var(--secondary-text-color);cursor:pointer;padding:4px 8px;border-radius:6px;transition:background .3s;margin-bottom:16px}.opinet-dialog-nav{display:flex;gap:12px;justify-content:center;flex-wrap:wrap}.onb{display:flex;flex-direction:column;align-items:center;gap:4px;background:var(--card-background-color,#fff);border:1px solid var(--divider-color,#e0e0e0);border-radius:10px;padding:8px;cursor:pointer;min-width:64px;transition:background .2s}.onb:hover{background:var(--table-row-hover-background-color,rgba(0,0,0,.04))}.onb span{font-size:.7em;color:var(--secondary-text-color)}";
       document.head.appendChild(ps);
     }
     function findStations(hass, deviceArg, includeFav) {
@@ -11321,10 +11321,13 @@ svg.leaflet-image-layer.leaflet-interactive path {\r
       { name: "\uD2F0\uB9F5", icon: ICON_TMAP, app: (n, lat, lng, addr) => `tmap://route?goalname=${encodeURIComponent(n)}&goalx=${lng}&goaly=${lat}`, web: (n, lat, lng, addr) => `https://tmap.life/link/?name=${encodeURIComponent(n)}&lon=${lng}&lat=${lat}` }
     ];
     function openNav(appUrl, webUrl) {
+      const a = document.createElement("a");
+      a.href = appUrl;
+      a.target = "_self";
       const t0 = Date.now();
-      window.location.href = appUrl;
+      a.click();
       setTimeout(() => {
-        if (Date.now() - t0 < 1500) window.location.href = webUrl;
+        if (Date.now() - t0 < 2e3) window.open(webUrl, "_blank");
       }, 1e3);
     }
     function copyAddress(addr) {
@@ -11343,7 +11346,7 @@ svg.leaflet-image-layer.leaflet-interactive path {\r
       }
     }
     function showStationPopup(hass, station) {
-      const old = document.querySelector(".opinet-popup-overlay");
+      const old = document.querySelector(".opinet-dialog");
       if (old) old.remove();
       const name = station["\uC8FC\uC720\uC18C\uBA85"] || station["\uC0C1\uD638\uBA85"] || "";
       const price = station["\uAC00\uACA9"] ? Number(station["\uAC00\uACA9"]).toLocaleString() + "\uC6D0" : "";
@@ -11355,20 +11358,15 @@ svg.leaflet-image-layer.leaflet-interactive path {\r
         const webUrl = lat && lng ? n.web(name, lat, lng, addr) : "";
         return `<button class="onb" data-nav="${i}" data-app="${appUrl.replace(/"/g, "&quot;")}" data-web="${webUrl.replace(/"/g, "&quot;")}"><img src="${n.icon}" width="48" height="48" alt="${n.name}"><span>${n.name}</span></button>`;
       }).join("");
-      const popup = document.createElement("div");
-      popup.className = "opinet-popup-overlay";
-      popup.innerHTML = `<div class="opinet-popup">
-    <button class="opinet-popup-close">\u2715</button>
-    <div class="opinet-popup-name">${name}</div>
-    <div class="opinet-popup-price">${price}</div>
-    <div class="opinet-popup-addr">${addr} <span style="font-size:.7em">\u{1F4CB}</span></div>
-    <div class="opinet-popup-nav">${navBtns}</div>
-  </div>`;
-      popup.querySelector(".opinet-popup-close").onclick = () => popup.remove();
-      popup.onclick = (e) => {
-        if (e.target === popup) popup.remove();
+      const dialog = document.createElement("dialog");
+      dialog.className = "opinet-dialog";
+      dialog.innerHTML = '<div class="opinet-dialog-inner"><button class="opinet-dialog-close">\u2715</button><div class="opinet-dialog-name">' + name + '</div><div class="opinet-dialog-price">' + price + '</div><div class="opinet-dialog-addr">' + addr + ' <span style="font-size:.7em">\u{1F4CB}</span></div><div class="opinet-dialog-nav">' + navBtns + "</div></div>";
+      dialog.querySelector(".opinet-dialog-close").onclick = () => dialog.close();
+      dialog.onclick = (e) => {
+        if (e.target === dialog) dialog.close();
       };
-      popup.querySelector(".opinet-popup-addr").onclick = function() {
+      dialog.onclose = () => dialog.remove();
+      dialog.querySelector(".opinet-dialog-addr").onclick = function() {
         const a = addr;
         if (navigator.clipboard) {
           navigator.clipboard.writeText(a).catch(() => {
@@ -11388,13 +11386,14 @@ svg.leaflet-image-layer.leaflet-interactive path {\r
           this.style.background = "";
         }, 600);
       };
-      popup.querySelectorAll(".onb").forEach((btn) => {
+      dialog.querySelectorAll(".onb").forEach((btn) => {
         btn.onclick = (e) => {
           e.stopPropagation();
           openNav(btn.dataset.app, btn.dataset.web);
         };
       });
-      document.body.appendChild(popup);
+      document.body.appendChild(dialog);
+      dialog.showModal();
     }
     function findRefreshButton(hass) {
       for (const eid of Object.keys(hass.states)) {
