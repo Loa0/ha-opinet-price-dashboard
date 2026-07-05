@@ -1,6 +1,6 @@
 {
   "name": "ha-opinet-price-dashboard",
-  "version": "2.2.0",
+  "version": "3.3.2",
   "private": true,
   "scripts": {
     "build": "node build.mjs"
