@@ -11279,15 +11279,6 @@ svg.leaflet-image-layer.leaflet-interactive path {\r
       ps.textContent = ".opinet-popup-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.5);z-index:2147483647;isolation:isolate;display:flex;align-items:center;justify-content:center}.opinet-popup{background:var(--card-background-color,#fff);color:var(--primary-text-color,#000);border-radius:16px;padding:24px;min-width:280px;max-width:90vw;max-height:90vh;overflow-y:auto;text-align:center;position:relative}.opinet-popup-close{position:absolute;top:8px;right:12px;background:none;border:none;font-size:20px;cursor:pointer;color:var(--secondary-text-color)}.opinet-popup-name{font-size:1.2em;font-weight:600;margin-bottom:4px}.opinet-popup-price{font-size:1.6em;font-weight:700;color:var(--primary-color,#1976d2);margin-bottom:8px}.opinet-popup-addr{font-size:.85em;color:var(--secondary-text-color);cursor:pointer;padding:4px 8px;border-radius:6px;transition:background .3s;margin-bottom:16px}.opinet-popup-nav{display:flex;gap:12px;justify-content:center;flex-wrap:wrap}.onb{display:flex;flex-direction:column;align-items:center;gap:4px;background:var(--card-background-color,#fff);border:1px solid var(--divider-color,#e0e0e0);border-radius:10px;padding:8px;cursor:pointer;min-width:64px;transition:background .2s}.onb:hover{background:var(--table-row-hover-background-color,rgba(0,0,0,.04))}.onb span{font-size:.7em;color:var(--secondary-text-color)}";
       document.head.appendChild(ps);
     }
-    (function loadKakao() {
-      if (window.Kakao && window.Kakao.init) return;
-      var s = document.createElement("script");
-      s.src = "https://developers.kakao.com/sdk/js/kakaonavi.min.js";
-      s.onload = function() {
-        window.Kakao.init("5dbf7c5fa1fd96d4e0ab6092cd12777e");
-      };
-      document.head.appendChild(s);
-    })();
     function findStations(hass, deviceArg, includeFav) {
       let deviceId = null;
       if (deviceArg && hass.entities) {
@@ -11326,22 +11317,20 @@ svg.leaflet-image-layer.leaflet-interactive path {\r
     const NAV = [
       { name: "\uB124\uC774\uBC84\uC9C0\uB3C4", icon: ICON_NAVER, app: (n, lat, lng, addr) => `nmap://route?dlat=${lat}&dlng=${lng}&dname=${encodeURIComponent(n)}`, web: (n, lat, lng, addr) => `https://m.map.naver.com/search2/search.naver?query=${encodeURIComponent(addr)}` },
       { name: "\uCE74\uCE74\uC624\uB9F5", icon: ICON_KAKAOMAP, app: (n, lat, lng, addr) => `kakaomap://route?ep=${lat},${lng}`, web: (n, lat, lng, addr) => `https://map.kakao.com/link/to/${encodeURIComponent(n)},${lat},${lng}` },
-      { name: "\uCE74\uCE74\uC624\uB0B4\uBE44", icon: ICON_KAKAONAVI, sdk: true },
+      { name: "\uCE74\uCE74\uC624\uB0B4\uBE44", icon: ICON_KAKAONAVI, app: (n, lat, lng, addr) => null, web: (n, lat, lng, addr) => `https://map.kakao.com/link/to/${encodeURIComponent(n)},${lat},${lng}` },
       { name: "\uD2F0\uB9F5", icon: ICON_TMAP, app: (n, lat, lng, addr) => `tmap://route?goalname=${encodeURIComponent(n)}&goalx=${lng}&goaly=${lat}`, web: (n, lat, lng, addr) => `https://map.kakao.com/link/to/${encodeURIComponent(n)},${lat},${lng}` }
     ];
     function openNav(navDef, name, lat, lng) {
-      if (navDef.sdk) {
-        if (window.Kakao && window.Kakao.Navi) {
-          window.Kakao.Navi.start({ name, x: lng, y: lat, coordType: "wgs84" });
-        }
-        return;
-      }
-      var appUrl = navDef.app(name, lat, lng, "");
       var webUrl = navDef.web(name, lat, lng, "");
-      window.open(appUrl, "_blank");
-      setTimeout(function() {
+      if (navDef.app) {
+        var appUrl = navDef.app(name, lat, lng, "");
+        window.open(appUrl, "_blank");
+        setTimeout(function() {
+          window.open(webUrl, "_blank");
+        }, 2e3);
+      } else {
         window.open(webUrl, "_blank");
-      }, 2e3);
+      }
     }
     function copyAddress(addr) {
       if (navigator.clipboard) {
