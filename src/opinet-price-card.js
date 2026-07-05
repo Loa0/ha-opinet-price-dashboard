@@ -77,13 +77,13 @@ const ICON_TMAP = 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http:/
 const NAV = [
   { name: '네이버지도', icon: ICON_NAVER,  app: (n,lat,lng,addr) => `nmap://route?dlat=${lat}&dlng=${lng}&dname=${encodeURIComponent(n)}`, web: (n,lat,lng,addr) => `https://m.map.naver.com/search2/search.naver?query=${encodeURIComponent(addr)}` },
   { name: '카카오맵',  icon: ICON_KAKAOMAP, app: (n,lat,lng,addr) => `kakaomap://route?ep=${lat},${lng}`, web: (n,lat,lng,addr) => `https://map.kakao.com/link/to/${encodeURIComponent(n)},${lat},${lng}` },
-  { name: '카카오내비', icon: ICON_KAKAONAVI, app: (n,lat,lng,addr) => `kakaonavi://route?epx=${lng}&epy=${lat}`, web: (n,lat,lng,addr) => `https://map.kakao.com/link/to/${encodeURIComponent(n)},${lat},${lng}` },
+  { name: '카카오내비', icon: ICON_KAKAONAVI, app: (n,lat,lng,addr) => `kakaonavi://route?epname=${encodeURIComponent(n)}&epx=${lng}&epy=${lat}`, web: (n,lat,lng,addr) => `https://map.kakao.com/link/to/${encodeURIComponent(n)},${lat},${lng}` },
   { name: '티맵',      icon: ICON_TMAP,  app: (n,lat,lng,addr) => `tmap://route?goalname=${encodeURIComponent(n)}&goalx=${lng}&goaly=${lat}`, web: (n,lat,lng,addr) => `https://map.kakao.com/link/to/${encodeURIComponent(n)},${lat},${lng}` },
 ];
 
 function openNav(appUrl, webUrl) {
-  window.open(appUrl, '_blank');
-  setTimeout(function() { window.open(webUrl, '_blank'); }, 1500);
+  window.location = appUrl;
+  setTimeout(function() { window.open(webUrl, '_blank'); }, 2000);
 }
 
 function copyAddress(addr) {
