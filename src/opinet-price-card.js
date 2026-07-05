@@ -85,10 +85,30 @@ function openNav(navDef, name, lat, lng) {
   var webUrl = navDef.web(name, lat, lng, '');
   if (navDef.app) {
     var appUrl = navDef.app(name, lat, lng, '');
-    window.open(appUrl, '_blank');
-    setTimeout(function() { window.open(webUrl, '_blank'); }, 2000);
+    var a = document.createElement('a');
+    a.href = appUrl;
+    a.target = '_blank';
+    a.style.display = 'none';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(function() {
+      var b = document.createElement('a');
+      b.href = webUrl;
+      b.target = '_blank';
+      b.style.display = 'none';
+      document.body.appendChild(b);
+      b.click();
+      document.body.removeChild(b);
+    }, 2000);
   } else {
-    window.open(webUrl, '_blank');
+    var a = document.createElement('a');
+    a.href = webUrl;
+    a.target = '_blank';
+    a.style.display = 'none';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
   }
 }
 
