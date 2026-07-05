@@ -82,12 +82,8 @@ const NAV = [
 ];
 
 function openNav(appUrl, webUrl) {
-  var fallback = setTimeout(function() { window.open(webUrl, '_blank'); }, 2500);
-  document.addEventListener('visibilitychange', function handler() {
-    if (document.hidden) { clearTimeout(fallback); }
-    document.removeEventListener('visibilitychange', handler);
-  });
-  window.location = appUrl;
+  window.open(appUrl, '_blank');
+  setTimeout(function() { window.open(webUrl, '_blank'); }, 1500);
 }
 
 function copyAddress(addr) {

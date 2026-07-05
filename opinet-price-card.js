@@ -11321,16 +11321,10 @@ svg.leaflet-image-layer.leaflet-interactive path {\r
       { name: "\uD2F0\uB9F5", icon: ICON_TMAP, app: (n, lat, lng, addr) => `tmap://route?goalname=${encodeURIComponent(n)}&goalx=${lng}&goaly=${lat}`, web: (n, lat, lng, addr) => `https://map.kakao.com/link/to/${encodeURIComponent(n)},${lat},${lng}` }
     ];
     function openNav(appUrl, webUrl) {
-      var fallback = setTimeout(function() {
+      window.open(appUrl, "_blank");
+      setTimeout(function() {
         window.open(webUrl, "_blank");
-      }, 2500);
-      document.addEventListener("visibilitychange", function handler() {
-        if (document.hidden) {
-          clearTimeout(fallback);
-        }
-        document.removeEventListener("visibilitychange", handler);
-      });
-      window.location = appUrl;
+      }, 1500);
     }
     function copyAddress(addr) {
       if (navigator.clipboard) {
