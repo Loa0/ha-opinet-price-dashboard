@@ -88,23 +88,48 @@ function showStationPopup(hass, station) {
   const lat = station['위도'] || station['latitude'] || '';
   const lng = station['경도'] || station['longitude'] || '';
 
-  const navBtns = NAV.map(n => {
+  const navBtns = NAV.map((n, i) => {
     const appUrl = lat && lng ? n.app(name, lat, lng, addr) : '';
     const webUrl = lat && lng ? n.web(name, lat, lng, addr) : '';
-    return `<button class="onb" onclick="event.stopPropagation();openNav('${appUrl}','${webUrl}')"><img src="${n.icon}" width="48" height="48" alt="${n.name}"><span>${n.name}</span></button>`;
+    return `<button class="onb" data-nav="${i}" data-app="${appUrl.replace(/"/g,'&quot;')}" data-web="${webUrl.replace(/"/g,'&quot;')}"><img src="${n.icon}" width="48" height="48" alt="${n.name}"><span>${n.name}</span></button>`;
   }).join('');
 
-  const escAddr = addr.replace(/'/g, "\\'").replace(/"/g, '&quot;');
   const popup = document.createElement('div');
   popup.className = 'opinet-popup-overlay';
   popup.innerHTML = `<div class="opinet-popup">
-    <button class="opinet-popup-close" onclick="this.closest('.opinet-popup-overlay').remove()">✕</button>
+    <button class="opinet-popup-close">✕</button>
     <div class="opinet-popup-name">${name}</div>
     <div class="opinet-popup-price">${price}</div>
-    <div class="opinet-popup-addr" onclick="copyAddress('${escAddr}');var t=this;t.style.background='var(--success-color,#4caf50)';setTimeout(function(){t.style.background=''},600)">${addr} <span style="font-size:.7em">📋</span></div>
+    <div class="opinet-popup-addr">${addr} <span style="font-size:.7em">📋</span></div>
     <div class="opinet-popup-nav">${navBtns}</div>
   </div>`;
+
+  // close button
+  popup.querySelector('.opinet-popup-close').onclick = () => popup.remove();
+  // backdrop click
   popup.onclick = (e) => { if (e.target === popup) popup.remove(); };
+  // address copy
+  popup.querySelector('.opinet-popup-addr').onclick = function() {
+    const a = addr;
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(a).catch(() => {});
+    } else {
+      const ta = document.createElement('textarea');
+      ta.value = a; ta.style.position='fixed'; ta.style.opacity='0';
+      document.body.appendChild(ta); ta.select();
+      document.execCommand('copy'); document.body.removeChild(ta);
+    }
+    this.style.background = 'var(--success-color,#4caf50)';
+    setTimeout(() => { this.style.background = ''; }, 600);
+  };
+  // nav buttons
+  popup.querySelectorAll('.onb').forEach(btn => {
+    btn.onclick = (e) => {
+      e.stopPropagation();
+      openNav(btn.dataset.app, btn.dataset.web);
+    };
+  });
+
   document.body.appendChild(popup);
 }
 
@@ -479,9 +504,15 @@ if (!customElements.get('opinet-map-card')) {
           html: price,
         });
         const marker = L.marker([lat, lon], { icon }).addTo(map);
-        if (price || name) {
-          marker.bindPopup('<b>' + name + '</b><br>' + price + '<br>' + addr);
-        }
+        marker.on('click', () => {
+          showStationPopup(this._hass, {
+            '주유소명': name,
+            '가격': t['가격'],
+            '주소': addr,
+            '위도': lat,
+            '경도': lon,
+          });
+        });
         this._markers.push(marker);
         bounds.push([lat, lon]);
       }
