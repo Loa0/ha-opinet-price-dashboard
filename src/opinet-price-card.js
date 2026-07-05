@@ -33,6 +33,15 @@ if (!document.getElementById('opinet-popup-css')) {
   document.head.appendChild(ps);
 }
 
+// ===== Kakao Navi SDK =====
+(function loadKakao() {
+  if (window.Kakao && window.Kakao.init) return;
+  var s = document.createElement('script');
+  s.src = 'https://developers.kakao.com/sdk/js/kakaonavi.min.js';
+  s.onload = function() { window.Kakao.init('5dbf7c5fa1fd96d4e0ab6092cd12777e'); };
+  document.head.appendChild(s);
+})();
+
 // ===== helpers =====
 function findStations(hass, deviceArg, includeFav) {
   let deviceId = null;
@@ -77,11 +86,19 @@ const ICON_TMAP = 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http:/
 const NAV = [
   { name: '네이버지도', icon: ICON_NAVER,  app: (n,lat,lng,addr) => `nmap://route?dlat=${lat}&dlng=${lng}&dname=${encodeURIComponent(n)}`, web: (n,lat,lng,addr) => `https://m.map.naver.com/search2/search.naver?query=${encodeURIComponent(addr)}` },
   { name: '카카오맵',  icon: ICON_KAKAOMAP, app: (n,lat,lng,addr) => `kakaomap://route?ep=${lat},${lng}`, web: (n,lat,lng,addr) => `https://map.kakao.com/link/to/${encodeURIComponent(n)},${lat},${lng}` },
-  { name: '카카오내비', icon: ICON_KAKAONAVI, app: (n,lat,lng,addr) => `kakaonavi://navigate?name=${encodeURIComponent(n)}&x=${lng}&y=${lat}`, web: (n,lat,lng,addr) => `https://map.kakao.com/link/to/${encodeURIComponent(n)},${lat},${lng}` },
+  { name: '카카오내비', icon: ICON_KAKAONAVI, sdk: true },
   { name: '티맵',      icon: ICON_TMAP,  app: (n,lat,lng,addr) => `tmap://route?goalname=${encodeURIComponent(n)}&goalx=${lng}&goaly=${lat}`, web: (n,lat,lng,addr) => `https://map.kakao.com/link/to/${encodeURIComponent(n)},${lat},${lng}` },
 ];
 
-function openNav(appUrl, webUrl) {
+function openNav(navDef, name, lat, lng) {
+  if (navDef.sdk) {
+    if (window.Kakao && window.Kakao.Navi) {
+      window.Kakao.Navi.start({ name: name, x: lng, y: lat, coordType: 'wgs84' });
+    }
+    return;
+  }
+  var appUrl = navDef.app(name, lat, lng, '');
+  var webUrl = navDef.web(name, lat, lng, '');
   window.open(appUrl, '_blank');
   setTimeout(function() { window.open(webUrl, '_blank'); }, 2000);
 }
@@ -109,9 +126,7 @@ function showStationPopup(hass, station) {
   const lng = station['경도'] || station['longitude'] || '';
 
   const navBtns = NAV.map((n, i) => {
-    const appUrl = lat && lng ? n.app(name, lat, lng, addr) : '';
-    const webUrl = lat && lng ? n.web(name, lat, lng, addr) : '';
-    return `<button class="onb" data-nav="${i}" data-app="${appUrl.replace(/"/g,'&quot;')}" data-web="${webUrl.replace(/"/g,'&quot;')}"><img src="${n.icon}" width="48" height="48" alt="${n.name}"><span>${n.name}</span></button>`;
+    return `<button class="onb" data-nav="${i}"><img src="${n.icon}" width="48" height="48" alt="${n.name}"><span>${n.name}</span></button>`;
   }).join('');
 
   const popup = document.createElement('div');
@@ -141,7 +156,8 @@ function showStationPopup(hass, station) {
   popup.querySelectorAll('.onb').forEach(btn => {
     btn.onclick = (e) => {
       e.stopPropagation();
-      openNav(btn.dataset.app, btn.dataset.web);
+      var idx = parseInt(btn.dataset.nav);
+      openNav(NAV[idx], name, lat, lng);
     };
   });
   document.body.appendChild(popup);
