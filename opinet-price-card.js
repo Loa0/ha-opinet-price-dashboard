@@ -11316,8 +11316,8 @@ svg.leaflet-image-layer.leaflet-interactive path {\r
     const ICON_TMAP = "data:image/svg+xml," + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48"><rect width="48" height="48" rx="12" fill="#3A5FCD"/><text x="24" y="33" text-anchor="middle" fill="white" font-size="28" font-weight="bold" font-family="Arial">T</text></svg>');
     const NAV = [
       { name: "\uB124\uC774\uBC84\uC9C0\uB3C4", icon: ICON_NAVER, app: (n, lat, lng, addr) => `nmap://route?dlat=${lat}&dlng=${lng}&dname=${encodeURIComponent(n)}`, web: (n, lat, lng, addr) => `https://m.map.naver.com/search2/search.naver?query=${encodeURIComponent(addr)}` },
-      { name: "\uCE74\uCE74\uC624\uB9F5", icon: ICON_KAKAOMAP, app: (n, lat, lng, addr) => `kakaomap://route?ep=${encodeURIComponent(n)}&epx=${lng}&epy=${lat}`, web: (n, lat, lng, addr) => `https://map.kakao.com/link/to/${encodeURIComponent(n)},${lat},${lng}` },
-      { name: "\uCE74\uCE74\uC624\uB0B4\uBE44", icon: ICON_KAKAONAVI, app: (n, lat, lng, addr) => `kakaonavi://navigate?epname=${encodeURIComponent(n)}&epx=${lng}&epy=${lat}`, web: (n, lat, lng, addr) => `https://map.kakao.com/link/to/${encodeURIComponent(n)},${lat},${lng}` },
+      { name: "\uCE74\uCE74\uC624\uB9F5", icon: ICON_KAKAOMAP, app: (n, lat, lng, addr) => `kakaomap://route?ep=${lat},${lng}`, web: (n, lat, lng, addr) => `https://map.kakao.com/link/to/${encodeURIComponent(n)},${lat},${lng}` },
+      { name: "\uCE74\uCE74\uC624\uB0B4\uBE44", icon: ICON_KAKAONAVI, app: (n, lat, lng, addr) => `kakaonavi://route?dest=${lat},${lng}`, web: (n, lat, lng, addr) => `https://map.kakao.com/link/to/${encodeURIComponent(n)},${lat},${lng}` },
       { name: "\uD2F0\uB9F5", icon: ICON_TMAP, app: (n, lat, lng, addr) => `tmap://route?goalname=${encodeURIComponent(n)}&goalx=${lng}&goaly=${lat}`, web: (n, lat, lng, addr) => `https://map.kakao.com/link/to/${encodeURIComponent(n)},${lat},${lng}` }
     ];
     function openNav(appUrl, webUrl) {
