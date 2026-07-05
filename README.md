@@ -2,6 +2,8 @@
 
 오피넷 주유소 최저가 통합구성요소([ha-opinet-price](https://github.com/Loa0/ha-opinet-price))의 Lovelace 대시보드 카드입니다.
 
+![icon](https://raw.githubusercontent.com/Loa0/ha-opinet-price-dashboard/master/icon.png)
+
 ## 포함된 카드
 
 | 카드 | 타입 | 설명 |
