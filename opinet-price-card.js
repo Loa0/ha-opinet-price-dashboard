@@ -11507,7 +11507,10 @@ svg.leaflet-image-layer.leaflet-interactive path {\r
           favLbl.appendChild(favCb);
           favLbl.appendChild(document.createTextNode("\uC990\uACA8\uCC3E\uAE30 \uD45C\uC2DC"));
           el.appendChild(favLbl);
+          let _done = false;
           const upgrade = () => {
+            if (_done) return;
+            _done = true;
             const hasPicker = customElements.get("ha-entity-picker");
             const hasSwitch = customElements.get("ha-switch");
             if (!hasPicker && !hasSwitch) return;
@@ -11783,29 +11786,31 @@ svg.leaflet-image-layer.leaflet-interactive path {\r
           el.appendChild(centerInp);
           const opinetInp = mkInput("\uC624\uD53C\uB137 \uC8FC\uC720\uC18C (entity_id)");
           el.appendChild(opinetInp);
+          let _done2 = false;
           const upgrade = () => {
-            if (customElements.get("ha-entity-picker")) {
-              [
-                { inp: centerInp, label: "\uC0AC\uC6A9\uC790 \uC704\uCE58 (\uD3EC\uCEE4\uC2F1)", key: "centerPick" },
-                { inp: opinetInp, label: "\uC624\uD53C\uB137 \uC8FC\uC720\uC18C", key: "opinetPick" }
-              ].forEach(({ inp, label, key }) => {
-                const pick = document.createElement("ha-entity-picker");
-                pick.setAttribute("label", label);
-                pick.style.display = "block";
-                pick.value = inp.value;
-                pick.addEventListener("value-changed", (ev) => {
-                  if (ev.detail?.value) {
-                    pick.value = ev.detail.value;
-                  }
-                  inp.dispatchEvent(new Event("input", { bubbles: true }));
-                });
-                inp.replaceWith(pick);
-                el[key] = pick;
-                inp.style.display = "none";
-                pick.value = inp.value;
-                if (el._hass) pick.hass = el._hass;
+            if (_done2) return;
+            _done2 = true;
+            if (!customElements.get("ha-entity-picker")) return;
+            [
+              { inp: centerInp, label: "\uC0AC\uC6A9\uC790 \uC704\uCE58 (\uD3EC\uCEE4\uC2F1)", key: "centerPick" },
+              { inp: opinetInp, label: "\uC624\uD53C\uB137 \uC8FC\uC720\uC18C", key: "opinetPick" }
+            ].forEach(({ inp, label, key }) => {
+              const pick = document.createElement("ha-entity-picker");
+              pick.setAttribute("label", label);
+              pick.style.display = "block";
+              pick.value = inp.value;
+              pick.addEventListener("value-changed", (ev) => {
+                if (ev.detail?.value) {
+                  pick.value = ev.detail.value;
+                }
+                inp.dispatchEvent(new Event("input", { bubbles: true }));
               });
-            }
+              inp.replaceWith(pick);
+              el[key] = pick;
+              inp.style.display = "none";
+              pick.value = inp.value;
+              if (el._hass) pick.hass = el._hass;
+            });
           };
           if (customElements.get("ha-entity-picker")) {
             upgrade();

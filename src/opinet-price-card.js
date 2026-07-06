@@ -269,8 +269,11 @@ if (!customElements.get('opinet-rank-card')) {
       favLbl.appendChild(document.createTextNode('즐겨찾기 표시'));
       el.appendChild(favLbl);
 
-      // Upgrade to HA components when available
+      // Try to upgrade to entity-picker once defined
+      let _done = false;
       const upgrade = () => {
+        if (_done) return;
+        _done = true;
         const hasPicker = customElements.get('ha-entity-picker');
         const hasSwitch = customElements.get('ha-switch');
         if (!hasPicker && !hasSwitch) return;
@@ -578,8 +581,11 @@ if (!customElements.get('opinet-map-card')) {
       el.appendChild(opinetInp);
 
       // Try to upgrade to entity-picker once defined
+      let _done2 = false;
       const upgrade = () => {
-        if (customElements.get('ha-entity-picker')) {
+        if (_done2) return;
+        _done2 = true;
+        if (!customElements.get('ha-entity-picker')) return;
           [ { inp: centerInp, label: '사용자 위치 (포커싱)', key: 'centerPick' },
             { inp: opinetInp, label: '오피넷 주유소', key: 'opinetPick' }
           ].forEach(({ inp, label, key }) => {
@@ -599,7 +605,6 @@ if (!customElements.get('opinet-map-card')) {
             // Set hass if available
             if (el._hass) pick.hass = el._hass;
           });
-        }
       };
       if (customElements.get('ha-entity-picker')) {
         upgrade();
