@@ -11289,6 +11289,10 @@ svg.leaflet-image-layer.leaflet-interactive path {\r
       const favs = [];
       for (const [eid, s] of Object.entries(hass.states)) {
         if (!eid.startsWith("sensor.")) continue;
+        if (!deviceId && hass.entities) {
+          const ent = hass.entities[eid];
+          if (!ent || ent.platform !== "opinet_price") continue;
+        }
         if (s.attributes["\uC21C\uC704"] == null) {
           if (includeFav && s.attributes["\uC8FC\uC720\uC18C\uBA85"]) {
             if (!deviceId || !hass.entities) {

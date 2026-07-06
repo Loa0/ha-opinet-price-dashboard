@@ -44,6 +44,7 @@ function findStations(hass, deviceArg, includeFav) {
   const favs = [];
   for (const [eid, s] of Object.entries(hass.states)) {
     if (!eid.startsWith('sensor.')) continue;
+    if (!deviceId && hass.entities) { const ent = hass.entities[eid]; if (!ent || ent.platform !== 'opinet_price') continue; }
     if (s.attributes['순위'] == null) {
       // 즐겨찾기: 순위 없음 + 주유소명 있음 + 동일 device (엔티티명 무관)
       if (includeFav && s.attributes['주유소명']) {
