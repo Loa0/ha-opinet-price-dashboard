@@ -282,8 +282,9 @@ if (!customElements.get('opinet-rank-card')) {
           pick.style.display = 'block';
           pick.style.marginBottom = '8px';
           pick.value = devInp.value;
-          pick.addEventListener('value-changed', () => {
-            devInp.value = pick.value || '';
+          pick.addEventListener('value-changed', (ev) => {
+            const val = ev.detail?.value || pick.value || '';
+            devInp.value = val;
             fire();
           });
           devInp.replaceWith(pick);
@@ -585,8 +586,8 @@ if (!customElements.get('opinet-map-card')) {
             pick.setAttribute('label', label);
             pick.style.display = 'block';
             pick.value = inp.value;
-            pick.addEventListener('value-changed', () => {
-              inp.value = pick.value || '';
+            pick.addEventListener('value-changed', (ev) => {
+              inp.value = ev.detail?.value || pick.value || '';
               inp.dispatchEvent(new Event('input', { bubbles: true }));
             });
             inp.replaceWith(pick);
