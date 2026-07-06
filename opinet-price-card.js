@@ -11518,8 +11518,9 @@ svg.leaflet-image-layer.leaflet-interactive path {\r
               pick.style.marginBottom = "8px";
               pick.value = devInp.value;
               pick.addEventListener("value-changed", (ev) => {
-                const val = ev.detail?.value || pick.value || "";
-                devInp.value = val;
+                const val = ev.detail?.value || "";
+                if (!val) return;
+                pick.value = val;
                 fire();
               });
               devInp.replaceWith(pick);
@@ -11793,7 +11794,9 @@ svg.leaflet-image-layer.leaflet-interactive path {\r
                 pick.style.display = "block";
                 pick.value = inp.value;
                 pick.addEventListener("value-changed", (ev) => {
-                  inp.value = ev.detail?.value || pick.value || "";
+                  if (ev.detail?.value) {
+                    pick.value = ev.detail.value;
+                  }
                   inp.dispatchEvent(new Event("input", { bubbles: true }));
                 });
                 inp.replaceWith(pick);
