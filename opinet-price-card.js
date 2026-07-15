@@ -11481,143 +11481,126 @@ svg.leaflet-image-layer.leaflet-interactive path {\r
           return 3;
         }
         static getConfigElement() {
-          const el = document.createElement("div");
-          el.style.display = "flex";
-          el.style.flexDirection = "column";
-          el.style.gap = "8px";
-          const titleInp = document.createElement("input");
-          titleInp.placeholder = "\uC81C\uBAA9";
-          titleInp.value = "\u26FD \uC624\uD53C\uB137 \uC8FC\uC720\uC18C";
-          titleInp.style.cssText = "width:100%;padding:8px;box-sizing:border-box;margin-bottom:8px;font-size:14px;border:1px solid var(--divider-color,#ccc);border-radius:4px;background:var(--card-background-color,#fff);color:var(--primary-text-color,#000)";
-          el.appendChild(titleInp);
-          const devInp = document.createElement("input");
-          devInp.placeholder = "\uC5D4\uD2F0\uD2F0 (entity_id)";
-          devInp.style.cssText = "width:100%;padding:8px;box-sizing:border-box;margin-bottom:8px;font-size:14px;border:1px solid var(--divider-color,#ccc);border-radius:4px;background:var(--card-background-color,#fff);color:var(--primary-text-color,#000)";
-          el.appendChild(devInp);
-          const usageLbl = document.createElement("label");
-          usageLbl.style.cssText = "display:flex;align-items:center;gap:8px;font-size:14px;";
-          const usageCb = document.createElement("input");
-          usageCb.type = "checkbox";
-          usageCb.checked = true;
-          usageLbl.appendChild(usageCb);
-          usageLbl.appendChild(document.createTextNode("API \uC0AC\uC6A9\uB7C9 \uD45C\uC2DC"));
-          el.appendChild(usageLbl);
-          const favLbl = document.createElement("label");
-          favLbl.style.cssText = "display:flex;align-items:center;gap:8px;font-size:14px;";
-          const favCb = document.createElement("input");
-          favCb.type = "checkbox";
-          favLbl.appendChild(favCb);
-          favLbl.appendChild(document.createTextNode("\uC990\uACA8\uCC3E\uAE30 \uD45C\uC2DC"));
-          el.appendChild(favLbl);
-          const countLbl = document.createElement("label");
-          countLbl.style.cssText = "display:flex;align-items:center;gap:8px;font-size:14px;";
-          countLbl.appendChild(document.createTextNode("\uD45C\uC2DC \uAC1C\uC218:"));
-          const countInp = document.createElement("input");
-          countInp.type = "number";
-          countInp.min = 1;
-          countInp.max = 50;
-          countInp.step = 1;
-          countInp.value = "10";
-          countInp.style.cssText = "width:72px;padding:6px;font-size:14px;border:1px solid var(--divider-color,#ccc);border-radius:4px;background:var(--card-background-color,#fff);color:var(--primary-text-color,#000);text-align:center";
-          countLbl.appendChild(countInp);
-          el.appendChild(countLbl);
-          let _done = false;
-          const upgrade = () => {
-            if (_done) return;
-            _done = true;
-            const hasPicker = customElements.get("ha-entity-picker");
-            const hasSwitch = customElements.get("ha-switch");
-            if (!hasPicker && !hasSwitch) return;
-            if (hasPicker) {
-              const pick = document.createElement("ha-entity-picker");
-              pick.setAttribute("label", "\uC5D4\uD2F0\uD2F0 \uC120\uD0DD");
-              pick.style.display = "block";
-              pick.style.marginBottom = "8px";
-              pick.value = devInp.value;
-              pick.addEventListener("value-changed", (ev) => {
-                const val = ev.detail?.value || "";
-                if (!val) return;
-                pick.value = val;
-                fire();
-              });
-              devInp.replaceWith(pick);
-              el._devPick = pick;
-              if (el._hass) pick.hass = el._hass;
-            }
-            if (hasSwitch) {
-              [
-                { cb: usageCb, lbl: usageLbl, label: "API \uC0AC\uC6A9\uB7C9 \uD45C\uC2DC", key: "_usageSw", checked: true },
-                { cb: favCb, lbl: favLbl, label: "\uC990\uACA8\uCC3E\uAE30 \uD45C\uC2DC", key: "_favSw", checked: false }
-              ].forEach(({ cb, lbl, label, key, checked }) => {
-                const ff = document.createElement("ha-formfield");
-                ff.setAttribute("label", label);
-                const sw = document.createElement("ha-switch");
-                sw.checked = cb.checked;
-                ff.appendChild(sw);
-                sw.addEventListener("click", () => {
-                  setTimeout(() => {
-                    cb.checked = sw.checked;
-                    fire();
-                  }, 0);
-                });
-                lbl.replaceWith(ff);
-                el[key] = sw;
-              });
-            }
-          };
-          if (customElements.get("ha-entity-picker") || customElements.get("ha-switch")) {
-            upgrade();
-          }
-          Promise.all([
-            customElements.whenDefined("ha-entity-picker"),
-            customElements.whenDefined("ha-switch")
-          ]).then(upgrade);
-          Object.defineProperty(el, "hass", {
-            set(h) {
-              el._hass = h;
-              if (el._devPick) el._devPick.hass = h;
-            }
-          });
-          el.setConfig = function(cfg) {
-            titleInp.value = cfg.title || "\u26FD \uC624\uD53C\uB137 \uC8FC\uC720\uC18C";
-            const dv = cfg.device || "";
-            if (el._devPick) el._devPick.value = dv;
-            else devInp.value = dv;
-            usageCb.checked = cfg.show_usage !== false;
-            favCb.checked = cfg.show_fav === true;
-            countInp.value = String(cfg.show_count != null ? cfg.show_count : 10);
-            if (el._usageSw) el._usageSw.checked = usageCb.checked;
-            if (el._favSw) el._favSw.checked = favCb.checked;
-          };
-          const fire = () => setTimeout(() => {
-            const ev = new Event("config-changed", { bubbles: true, composed: true });
-            ev.detail = { config: el.value };
-            el.dispatchEvent(ev);
-          }, 0);
-          titleInp.addEventListener("input", fire);
-          devInp.addEventListener("input", fire);
-          usageCb.addEventListener("change", fire);
-          favCb.addEventListener("change", fire);
-          countInp.addEventListener("input", fire);
-          Object.defineProperty(el, "value", { get() {
-            const v = {
-              type: "custom:opinet-rank-card",
-              title: titleInp.value,
-              show_usage: usageCb.checked,
-              show_fav: favCb.checked,
-              show_count: parseInt(countInp.value, 10) || 10
-            };
-            const dv = (el._devPick ? el._devPick.value : devInp.value) || "";
-            if (dv) v.device = dv;
-            return v;
-          } });
-          return el;
+          return document.createElement("opinet-rank-card-editor");
         }
         static getStubConfig() {
           return { title: "\u26FD \uC624\uD53C\uB137 \uC8FC\uC720\uC18C", show_usage: true, show_fav: false, show_count: 10 };
         }
       }
       customElements.define("opinet-rank-card", OpinetRankCard);
+      class OpinetRankCardEditor extends HTMLElement {
+        setConfig(config) {
+          this._config = config;
+          if (!this._rendered) this._build();
+          this._update();
+        }
+        set hass(h) {
+          this._hass = h;
+          if (this._devPick) this._devPick.hass = h;
+        }
+        _build() {
+          this._rendered = true;
+          this.style.display = "flex";
+          this.style.flexDirection = "column";
+          this.style.gap = "8px";
+          this._titleInp = document.createElement("input");
+          this._titleInp.placeholder = "\uC81C\uBAA9";
+          this._titleInp.value = "\u26FD \uC624\uD53C\uB137 \uC8FC\uC720\uC18C";
+          this._titleInp.style.cssText = "width:100%;padding:8px;box-sizing:border-box;margin-bottom:8px;font-size:14px;border:1px solid var(--divider-color,#ccc);border-radius:4px;background:var(--card-background-color,#fff);color:var(--primary-text-color,#000)";
+          this.appendChild(this._titleInp);
+          const devInp = document.createElement("input");
+          devInp.placeholder = "\uC5D4\uD2F0\uD2F0 (entity_id)";
+          devInp.style.cssText = "width:100%;padding:8px;box-sizing:border-box;margin-bottom:8px;font-size:14px;border:1px solid var(--divider-color,#ccc);border-radius:4px;background:var(--card-background-color,#fff);color:var(--primary-text-color,#000)";
+          this.appendChild(devInp);
+          this._usageCb = document.createElement("input");
+          this._usageCb.type = "checkbox";
+          this._usageCb.checked = true;
+          const usageLbl = document.createElement("label");
+          usageLbl.style.cssText = "display:flex;align-items:center;gap:8px;font-size:14px;";
+          usageLbl.appendChild(this._usageCb);
+          usageLbl.appendChild(document.createTextNode("API \uC0AC\uC6A9\uB7C9 \uD45C\uC2DC"));
+          this.appendChild(usageLbl);
+          this._favCb = document.createElement("input");
+          this._favCb.type = "checkbox";
+          const favLbl = document.createElement("label");
+          favLbl.style.cssText = "display:flex;align-items:center;gap:8px;font-size:14px;";
+          favLbl.appendChild(this._favCb);
+          favLbl.appendChild(document.createTextNode("\uC990\uACA8\uCC3E\uAE30 \uD45C\uC2DC"));
+          this.appendChild(favLbl);
+          const countLbl = document.createElement("label");
+          countLbl.style.cssText = "display:flex;align-items:center;gap:8px;font-size:14px;";
+          countLbl.appendChild(document.createTextNode("\uD45C\uC2DC \uAC1C\uC218:"));
+          this._countInp = document.createElement("input");
+          this._countInp.type = "number";
+          this._countInp.min = 1;
+          this._countInp.max = 50;
+          this._countInp.step = 1;
+          this._countInp.value = "10";
+          this._countInp.style.cssText = "width:72px;padding:6px;font-size:14px;border:1px solid var(--divider-color,#ccc);border-radius:4px;background:var(--card-background-color,#fff);color:var(--primary-text-color,#000);text-align:center";
+          countLbl.appendChild(this._countInp);
+          this.appendChild(countLbl);
+          const fire = () => {
+            this.dispatchEvent(new CustomEvent("config-changed", {
+              bubbles: true,
+              composed: true,
+              detail: { config: this.value }
+            }));
+          };
+          this._titleInp.addEventListener("input", fire);
+          devInp.addEventListener("input", fire);
+          this._usageCb.addEventListener("change", fire);
+          this._favCb.addEventListener("change", fire);
+          this._countInp.addEventListener("input", fire);
+          this._devPick = null;
+          const doUpgrade = () => {
+            if (this._devPick) return;
+            if (customElements.get("ha-entity-picker")) {
+              const pick = document.createElement("ha-entity-picker");
+              pick.setAttribute("label", "\uC5D4\uD2F0\uD2F0 \uC120\uD0DD");
+              pick.style.display = "block";
+              pick.style.marginBottom = "8px";
+              pick.value = devInp.value;
+              pick.addEventListener("value-changed", () => {
+                devInp.value = pick.value;
+                fire();
+              });
+              try {
+                devInp.replaceWith(pick);
+              } catch (e) {
+              }
+              this._devPick = pick;
+              if (this._hass) pick.hass = this._hass;
+            }
+          };
+          if (customElements.get("ha-entity-picker")) {
+            doUpgrade();
+          } else {
+            customElements.whenDefined("ha-entity-picker").then(doUpgrade);
+          }
+        }
+        _update() {
+          const c = this._config || {};
+          this._titleInp.value = c.title || "\u26FD \uC624\uD53C\uB137 \uC8FC\uC720\uC18C";
+          if (this._devPick) this._devPick.value = c.device || "";
+          this._usageCb.checked = c.show_usage !== false;
+          this._favCb.checked = c.show_fav === true;
+          this._countInp.value = String(c.show_count != null ? c.show_count : 10);
+        }
+        get value() {
+          const c = {
+            type: "custom:opinet-rank-card",
+            title: this._titleInp.value,
+            show_usage: this._usageCb.checked,
+            show_fav: this._favCb.checked,
+            show_count: parseInt(this._countInp.value, 10) || 10
+          };
+          if (this._devPick) {
+            if (this._devPick.value) c.device = this._devPick.value;
+          }
+          return c;
+        }
+      }
+      customElements.define("opinet-rank-card-editor", OpinetRankCardEditor);
     }
     if (!customElements.get("opinet-map-card")) {
       class OpinetMapCard extends HTMLElement {

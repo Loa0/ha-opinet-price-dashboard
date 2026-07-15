@@ -234,160 +234,142 @@ if (!customElements.get('opinet-rank-card')) {
     }
     getCardSize() { return 3; }
     static getConfigElement() {
-      const el = document.createElement('div');
-      el.style.display = 'flex';
-      el.style.flexDirection = 'column';
-      el.style.gap = '8px';
-
-      // title input
-      const titleInp = document.createElement('input');
-      titleInp.placeholder = '제목';
-      titleInp.value = '⛽ 오피넷 주유소';
-      titleInp.style.cssText = 'width:100%;padding:8px;box-sizing:border-box;margin-bottom:8px;font-size:14px;border:1px solid var(--divider-color,#ccc);border-radius:4px;background:var(--card-background-color,#fff);color:var(--primary-text-color,#000)';
-      el.appendChild(titleInp);
-
-      // device picker — input fallback + entity-picker upgrade
-      const devInp = document.createElement('input');
-      devInp.placeholder = '엔티티 (entity_id)';
-      devInp.style.cssText = 'width:100%;padding:8px;box-sizing:border-box;margin-bottom:8px;font-size:14px;border:1px solid var(--divider-color,#ccc);border-radius:4px;background:var(--card-background-color,#fff);color:var(--primary-text-color,#000)';
-      el.appendChild(devInp);
-
-      // usage switch — checkbox fallback
-      const usageLbl = document.createElement('label');
-      usageLbl.style.cssText = 'display:flex;align-items:center;gap:8px;font-size:14px;';
-      const usageCb = document.createElement('input');
-      usageCb.type = 'checkbox';
-      usageCb.checked = true;
-      usageLbl.appendChild(usageCb);
-      usageLbl.appendChild(document.createTextNode('API 사용량 표시'));
-      el.appendChild(usageLbl);
-
-      // fav switch — checkbox fallback
-      const favLbl = document.createElement('label');
-      favLbl.style.cssText = 'display:flex;align-items:center;gap:8px;font-size:14px;';
-      const favCb = document.createElement('input');
-      favCb.type = 'checkbox';
-      favLbl.appendChild(favCb);
-      favLbl.appendChild(document.createTextNode('즐겨찾기 표시'));
-      el.appendChild(favLbl);
-
-      // count input — same pattern as switches above
-      const countLbl = document.createElement('label');
-      countLbl.style.cssText = 'display:flex;align-items:center;gap:8px;font-size:14px;';
-      countLbl.appendChild(document.createTextNode('표시 개수:'));
-      const countInp = document.createElement('input');
-      countInp.type = 'number';
-      countInp.min = 1;
-      countInp.max = 50;
-      countInp.step = 1;
-      countInp.value = '10';
-      countInp.style.cssText = 'width:72px;padding:6px;font-size:14px;border:1px solid var(--divider-color,#ccc);border-radius:4px;background:var(--card-background-color,#fff);color:var(--primary-text-color,#000);text-align:center';
-      countLbl.appendChild(countInp);
-      el.appendChild(countLbl);
-
-      // Try to upgrade to entity-picker once defined
-      let _done = false;
-      const upgrade = () => {
-        if (_done) return;
-        _done = true;
-        const hasPicker = customElements.get('ha-entity-picker');
-        const hasSwitch = customElements.get('ha-switch');
-        if (!hasPicker && !hasSwitch) return;
-
-        // entity-picker upgrade
-        if (hasPicker) {
-          const pick = document.createElement('ha-entity-picker');
-          pick.setAttribute('label', '엔티티 선택');
-          pick.style.display = 'block';
-          pick.style.marginBottom = '8px';
-          pick.value = devInp.value;
-          pick.addEventListener('value-changed', (ev) => {
-            const val = ev.detail?.value || '';
-            if (!val) return;
-            pick.value = val;
-            fire();
-          });
-          devInp.replaceWith(pick);
-          el._devPick = pick;
-          if (el._hass) pick.hass = el._hass;
-        }
-
-        // switch upgrades
-        if (hasSwitch) {
-          [ { cb: usageCb, lbl: usageLbl, label: 'API 사용량 표시', key: '_usageSw', checked: true },
-            { cb: favCb, lbl: favLbl, label: '즐겨찾기 표시', key: '_favSw', checked: false }
-          ].forEach(({ cb, lbl, label, key, checked }) => {
-            const ff = document.createElement('ha-formfield');
-            ff.setAttribute('label', label);
-            const sw = document.createElement('ha-switch');
-            sw.checked = cb.checked;
-            ff.appendChild(sw);
-            sw.addEventListener('click', () => {
-              setTimeout(() => { cb.checked = sw.checked; fire(); }, 0);
-            });
-            lbl.replaceWith(ff);
-            el[key] = sw;
-          });
-        }
-      };
-      if (customElements.get('ha-entity-picker') || customElements.get('ha-switch')) {
-        upgrade();
-      }
-      Promise.all([
-        customElements.whenDefined('ha-entity-picker'),
-        customElements.whenDefined('ha-switch'),
-      ]).then(upgrade);
-
-      // Accept hass
-      Object.defineProperty(el, 'hass', {
-        set(h) {
-          el._hass = h;
-          if (el._devPick) el._devPick.hass = h;
-        }
-      });
-
-      el.setConfig = function(cfg) {
-        titleInp.value = cfg.title || '⛽ 오피넷 주유소';
-        const dv = cfg.device || '';
-        if (el._devPick) el._devPick.value = dv;
-        else devInp.value = dv;
-        usageCb.checked = cfg.show_usage !== false;
-        favCb.checked = cfg.show_fav === true;
-        countInp.value = String(cfg.show_count != null ? cfg.show_count : 10);
-        if (el._usageSw) el._usageSw.checked = usageCb.checked;
-        if (el._favSw) el._favSw.checked = favCb.checked;
-      };
-
-      const fire = () => setTimeout(() => {
-        const ev = new Event('config-changed', { bubbles: true, composed: true });
-        ev.detail = { config: el.value };
-        el.dispatchEvent(ev);
-      }, 0);
-      titleInp.addEventListener('input', fire);
-      devInp.addEventListener('input', fire);
-      usageCb.addEventListener('change', fire);
-      favCb.addEventListener('change', fire);
-      countInp.addEventListener('input', fire);
-
-      Object.defineProperty(el, 'value', { get() {
-        const v = {
-          type: 'custom:opinet-rank-card',
-          title: titleInp.value,
-          show_usage: usageCb.checked,
-          show_fav: favCb.checked,
-          show_count: parseInt(countInp.value, 10) || 10,
-        };
-        const dv = (el._devPick ? el._devPick.value : devInp.value) || '';
-        if (dv) v.device = dv;
-        return v;
-      }});
-      return el;
+      return document.createElement('opinet-rank-card-editor');
     }
     static getStubConfig() {
       return { title: '⛽ 오피넷 주유소', show_usage: true, show_fav: false, show_count: 10 };
     }
   }
   customElements.define('opinet-rank-card', OpinetRankCard);
+
+  // ===== Editor (custom element per HA docs) =====
+  class OpinetRankCardEditor extends HTMLElement {
+    setConfig(config) {
+      this._config = config;
+      if (!this._rendered) this._build();
+      this._update();
+    }
+
+    set hass(h) {
+      this._hass = h;
+      if (this._devPick) this._devPick.hass = h;
+    }
+
+    _build() {
+      this._rendered = true;
+      this.style.display = 'flex';
+      this.style.flexDirection = 'column';
+      this.style.gap = '8px';
+
+      // title
+      this._titleInp = document.createElement('input');
+      this._titleInp.placeholder = '제목';
+      this._titleInp.value = '⛽ 오피넷 주유소';
+      this._titleInp.style.cssText = 'width:100%;padding:8px;box-sizing:border-box;margin-bottom:8px;font-size:14px;border:1px solid var(--divider-color,#ccc);border-radius:4px;background:var(--card-background-color,#fff);color:var(--primary-text-color,#000)';
+      this.appendChild(this._titleInp);
+
+      // device
+      const devInp = document.createElement('input');
+      devInp.placeholder = '엔티티 (entity_id)';
+      devInp.style.cssText = 'width:100%;padding:8px;box-sizing:border-box;margin-bottom:8px;font-size:14px;border:1px solid var(--divider-color,#ccc);border-radius:4px;background:var(--card-background-color,#fff);color:var(--primary-text-color,#000)';
+      this.appendChild(devInp);
+
+      // usage switch
+      this._usageCb = document.createElement('input');
+      this._usageCb.type = 'checkbox';
+      this._usageCb.checked = true;
+      const usageLbl = document.createElement('label');
+      usageLbl.style.cssText = 'display:flex;align-items:center;gap:8px;font-size:14px;';
+      usageLbl.appendChild(this._usageCb);
+      usageLbl.appendChild(document.createTextNode('API 사용량 표시'));
+      this.appendChild(usageLbl);
+
+      // fav switch
+      this._favCb = document.createElement('input');
+      this._favCb.type = 'checkbox';
+      const favLbl = document.createElement('label');
+      favLbl.style.cssText = 'display:flex;align-items:center;gap:8px;font-size:14px;';
+      favLbl.appendChild(this._favCb);
+      favLbl.appendChild(document.createTextNode('즐겨찾기 표시'));
+      this.appendChild(favLbl);
+
+      // count input — same pattern
+      const countLbl = document.createElement('label');
+      countLbl.style.cssText = 'display:flex;align-items:center;gap:8px;font-size:14px;';
+      countLbl.appendChild(document.createTextNode('표시 개수:'));
+      this._countInp = document.createElement('input');
+      this._countInp.type = 'number';
+      this._countInp.min = 1;
+      this._countInp.max = 50;
+      this._countInp.step = 1;
+      this._countInp.value = '10';
+      this._countInp.style.cssText = 'width:72px;padding:6px;font-size:14px;border:1px solid var(--divider-color,#ccc);border-radius:4px;background:var(--card-background-color,#fff);color:var(--primary-text-color,#000);text-align:center';
+      countLbl.appendChild(this._countInp);
+      this.appendChild(countLbl);
+
+      // fire on change
+      const fire = () => {
+        this.dispatchEvent(new CustomEvent('config-changed', {
+          bubbles: true, composed: true,
+          detail: { config: this.value }
+        }));
+      };
+      this._titleInp.addEventListener('input', fire);
+      devInp.addEventListener('input', fire);
+      this._usageCb.addEventListener('change', fire);
+      this._favCb.addEventListener('change', fire);
+      this._countInp.addEventListener('input', fire);
+
+      // entity-picker upgrade
+      this._devPick = null;
+      const doUpgrade = () => {
+        if (this._devPick) return;
+        if (customElements.get('ha-entity-picker')) {
+          const pick = document.createElement('ha-entity-picker');
+          pick.setAttribute('label', '엔티티 선택');
+          pick.style.display = 'block';
+          pick.style.marginBottom = '8px';
+          pick.value = devInp.value;
+          pick.addEventListener('value-changed', () => {
+            devInp.value = pick.value;
+            fire();
+          });
+          try { devInp.replaceWith(pick); } catch(e) {}
+          this._devPick = pick;
+          if (this._hass) pick.hass = this._hass;
+        }
+      };
+      if (customElements.get('ha-entity-picker')) {
+        doUpgrade();
+      } else {
+        customElements.whenDefined('ha-entity-picker').then(doUpgrade);
+      }
+    }
+
+    _update() {
+      const c = this._config || {};
+      this._titleInp.value = c.title || '⛽ 오피넷 주유소';
+      if (this._devPick) this._devPick.value = c.device || '';
+      this._usageCb.checked = c.show_usage !== false;
+      this._favCb.checked = c.show_fav === true;
+      this._countInp.value = String(c.show_count != null ? c.show_count : 10);
+    }
+
+    get value() {
+      const c = {
+        type: 'custom:opinet-rank-card',
+        title: this._titleInp.value,
+        show_usage: this._usageCb.checked,
+        show_fav: this._favCb.checked,
+        show_count: parseInt(this._countInp.value, 10) || 10,
+      };
+      if (this._devPick) {
+        if (this._devPick.value) c.device = this._devPick.value;
+      }
+      return c;
+    }
+  }
+  customElements.define('opinet-rank-card-editor', OpinetRankCardEditor);
 }
 
 // ================================================================
