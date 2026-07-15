@@ -382,7 +382,7 @@ if (!customElements.get('opinet-map-card')) {
       this.attachShadow({ mode: 'open' });
     }
 
-    setConfig(c) { this._cfg = c; }
+    setConfig(c) { this._cfg = { max_markers: 0, height: 400, ...c }; }
 
     set hass(h) {
       this._hass = h;
@@ -425,6 +425,12 @@ if (!customElements.get('opinet-map-card')) {
 
       // if nothing to show, skip
       if (!centerLat && !trackers.length) return;
+
+      // limit markers
+      const maxMarkers = this._cfg.max_markers || 0;
+      if (maxMarkers > 0 && trackers.length > maxMarkers) {
+        trackers = trackers.slice(0, maxMarkers);
+      }
 
       if (!this._map) {
         this._centerLat = centerLat;
@@ -562,12 +568,32 @@ if (!customElements.get('opinet-map-card')) {
     getCardSize() { return 6; }
 
     static getConfigElement() {
-      const el = document.createElement('div');
-      el.style.display = 'flex';
-      el.style.flexDirection = 'column';
-      el.style.gap = '8px';
+      return document.createElement('opinet-map-card-editor');
+    }
+    static getStubConfig() { return { type: 'custom:opinet-map-card', max_markers: 0, height: 400 }; }
+  }
+  customElements.define('opinet-map-card', OpinetMapCard);
 
-      // Use text inputs as fallback, upgrade to entity-picker when available
+  // ===== Map Card Editor =====
+  class OpinetMapCardEditor extends HTMLElement {
+    setConfig(config) {
+      this._config = config;
+      if (!this._rendered) this._build();
+      this._update();
+    }
+
+    set hass(h) {
+      this._hass = h;
+      if (this._centerPick) this._centerPick.hass = h;
+      if (this._opinetPick) this._opinetPick.hass = h;
+    }
+
+    _build() {
+      this._rendered = true;
+      this.style.display = 'flex';
+      this.style.flexDirection = 'column';
+      this.style.gap = '8px';
+
       const mkInput = (label) => {
         const inp = document.createElement('input');
         inp.placeholder = label;
@@ -576,82 +602,83 @@ if (!customElements.get('opinet-map-card')) {
       };
 
       const centerInp = mkInput('사용자 위치 (entity_id)');
-      el.appendChild(centerInp);
+      this.appendChild(centerInp);
 
       const opinetInp = mkInput('오피넷 주유소 (entity_id)');
-      el.appendChild(opinetInp);
+      this.appendChild(opinetInp);
 
-      // Try to upgrade to entity-picker once defined
-      let _done2 = false;
-      const upgrade = () => {
-        if (_done2) return;
-        _done2 = true;
-        if (!customElements.get('ha-entity-picker')) return;
-          [ { inp: centerInp, label: '사용자 위치 (포커싱)', key: 'centerPick' },
-            { inp: opinetInp, label: '오피넷 주유소', key: 'opinetPick' }
-          ].forEach(({ inp, label, key }) => {
+      // max_markers input
+      const countLbl = document.createElement('label');
+      countLbl.style.cssText = 'display:flex;align-items:center;gap:8px;font-size:14px;margin-top:4px;';
+      countLbl.appendChild(document.createTextNode('최대 마커:'));
+      this._maxInp = document.createElement('input');
+      this._maxInp.type = 'number';
+      this._maxInp.min = 0;
+      this._maxInp.max = 50;
+      this._maxInp.step = 1;
+      this._maxInp.value = '0';
+      this._maxInp.style.cssText = 'width:72px;padding:6px;font-size:14px;border:1px solid var(--divider-color,#ccc);border-radius:4px;background:var(--card-background-color,#fff);color:var(--primary-text-color,#000);text-align:center';
+      countLbl.appendChild(this._maxInp);
+      this.appendChild(countLbl);
+
+      // fire on change
+      const fire = () => {
+        this.dispatchEvent(new CustomEvent('config-changed', {
+          bubbles: true, composed: true,
+          detail: { config: this.value }
+        }));
+      };
+      centerInp.addEventListener('input', fire);
+      opinetInp.addEventListener('input', fire);
+      this._maxInp.addEventListener('input', fire);
+
+      // entity-picker upgrade
+      this._centerPick = null;
+      this._opinetPick = null;
+      const doUpgrade = () => {
+        if (this._centerPick) return;
+        if (customElements.get('ha-entity-picker')) {
+          [
+            { inp: centerInp, key: '_centerPick', label: '사용자 위치 (포커싱)' },
+            { inp: opinetInp, key: '_opinetPick', label: '오피넷 주유소' }
+          ].forEach(({ inp, key, label }) => {
             const pick = document.createElement('ha-entity-picker');
             pick.setAttribute('label', label);
             pick.style.display = 'block';
             pick.value = inp.value;
-            pick.addEventListener('value-changed', (ev) => {
-              if (ev.detail?.value) { pick.value = ev.detail.value; }
-              inp.dispatchEvent(new Event('input', { bubbles: true }));
+            pick.addEventListener('value-changed', () => {
+              inp.value = pick.value;
+              fire();
             });
-            inp.replaceWith(pick);
-            el[key] = pick;
-            inp.style.display = 'none';
-            // Copy current value
-            pick.value = inp.value;
-            // Set hass if available
-            if (el._hass) pick.hass = el._hass;
+            try { inp.replaceWith(pick); } catch(e) {}
+            this[key] = pick;
+            if (this._hass) pick.hass = this._hass;
           });
+        }
       };
       if (customElements.get('ha-entity-picker')) {
-        upgrade();
+        doUpgrade();
       } else {
-        customElements.whenDefined('ha-entity-picker').then(upgrade);
+        customElements.whenDefined('ha-entity-picker').then(doUpgrade);
       }
-
-      // Accept hass from HA
-      Object.defineProperty(el, 'hass', {
-        set(h) {
-          el._hass = h;
-          if (el.centerPick) el.centerPick.hass = h;
-          if (el.opinetPick) el.opinetPick.hass = h;
-        }
-      });
-
-      el.setConfig = function(cfg) {
-        const cv = cfg.center_tracker || '';
-        const ov = cfg.opinet_tracker || '';
-        if (el.centerPick) el.centerPick.value = cv;
-        else centerInp.value = cv;
-        if (el.opinetPick) el.opinetPick.value = ov;
-        else opinetInp.value = ov;
-      };
-
-      const fire = () => setTimeout(() => {
-        const ev = new Event('config-changed', { bubbles: true, composed: true });
-        ev.detail = { config: el.value };
-        el.dispatchEvent(ev);
-      }, 0);
-      centerInp.addEventListener('input', fire);
-      opinetInp.addEventListener('input', fire);
-
-      Object.defineProperty(el, 'value', { get() {
-        const v = { type: 'custom:opinet-map-card' };
-        const cv = (el.centerPick ? el.centerPick.value : centerInp.value) || '';
-        const ov = (el.opinetPick ? el.opinetPick.value : opinetInp.value) || '';
-        if (cv) v.center_tracker = cv;
-        if (ov) v.opinet_tracker = ov;
-        return v;
-      }});
-      return el;
     }
-    static getStubConfig() { return { type: 'custom:opinet-map-card' }; }
+
+    _update() {
+      const c = this._config || {};
+      if (this._centerPick) this._centerPick.value = c.center_tracker || '';
+      if (this._opinetPick) this._opinetPick.value = c.opinet_tracker || '';
+      this._maxInp.value = String(c.max_markers != null ? c.max_markers : 0);
+    }
+
+    get value() {
+      const c = { type: 'custom:opinet-map-card' };
+      if (this._centerPick && this._centerPick.value) c.center_tracker = this._centerPick.value;
+      if (this._opinetPick && this._opinetPick.value) c.opinet_tracker = this._opinetPick.value;
+      c.max_markers = parseInt(this._maxInp.value, 10) || 0;
+      return c;
+    }
   }
-  customElements.define('opinet-map-card', OpinetMapCard);
+  customElements.define('opinet-map-card-editor', OpinetMapCardEditor);
 }
 
 // ===== HA registry =====
