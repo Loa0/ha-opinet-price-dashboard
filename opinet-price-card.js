@@ -11421,7 +11421,7 @@ svg.leaflet-image-layer.leaflet-interactive path {\r
     if (!customElements.get("opinet-rank-card")) {
       class OpinetRankCard extends HTMLElement {
         setConfig(c) {
-          this._cfg = { title: "\u26FD \uC624\uD53C\uB137 \uC8FC\uC720\uC18C", show_usage: true, show_fav: false, ...c };
+          this._cfg = { title: "\u26FD \uC624\uD53C\uB137 \uC8FC\uC720\uC18C", show_usage: true, show_fav: false, show_count: 10, ...c };
         }
         set hass(h) {
           this._hass = h;
@@ -11432,6 +11432,8 @@ svg.leaflet-image-layer.leaflet-interactive path {\r
           const refreshBtn = findRefreshButton(this._hass);
           const usageEid = findUsage(this._hass);
           let rows = "";
+          const maxStations = this._cfg.show_count || 10;
+          const shownStations = stations.slice(0, maxStations);
           if (favorites.length) {
             for (const s of favorites) {
               const p = s["\uAC00\uACA9"] ? Number(s["\uAC00\uACA9"]).toLocaleString() : "-";
@@ -11439,8 +11441,8 @@ svg.leaflet-image-layer.leaflet-interactive path {\r
               rows += `<tr class="ow ofav" data-eid="${s.eid}"><td class="or1">\u2605</td><td class="or2">${s["\uC8FC\uC720\uC18C\uBA85"] || "-"}</td><td class="or3">${p}\uC6D0</td><td class="or4">${d}</td></tr>`;
             }
           }
-          if (stations.length) {
-            for (const s of stations) {
+          if (shownStations.length) {
+            for (const s of shownStations) {
               const p = s["\uAC00\uACA9"] ? Number(s["\uAC00\uACA9"]).toLocaleString() : "-";
               const d = s["\uAC70\uB9AC"] || "-";
               rows += `<tr class="ow" data-eid="${s.eid}"><td class="or1">${s["\uC21C\uC704"]}\uC704</td><td class="or2">${s["\uC8FC\uC720\uC18C\uBA85"] || "-"}</td><td class="or3">${p}\uC6D0</td><td class="or4">${d}</td></tr>`;
@@ -11507,6 +11509,18 @@ svg.leaflet-image-layer.leaflet-interactive path {\r
           favLbl.appendChild(favCb);
           favLbl.appendChild(document.createTextNode("\uC990\uACA8\uCC3E\uAE30 \uD45C\uC2DC"));
           el.appendChild(favLbl);
+          const countLbl = document.createElement("label");
+          countLbl.style.cssText = "display:flex;align-items:center;gap:8px;font-size:14px;";
+          countLbl.appendChild(document.createTextNode("\uD45C\uC2DC \uAC1C\uC218:"));
+          const countInp = document.createElement("input");
+          countInp.type = "number";
+          countInp.min = 1;
+          countInp.max = 50;
+          countInp.step = 1;
+          countInp.value = "10";
+          countInp.style.cssText = "width:72px;padding:6px;font-size:14px;border:1px solid var(--divider-color,#ccc);border-radius:4px;background:var(--card-background-color,#fff);color:var(--primary-text-color,#000);text-align:center";
+          countLbl.appendChild(countInp);
+          el.appendChild(countLbl);
           let _done = false;
           const upgrade = () => {
             if (_done) return;
@@ -11571,6 +11585,7 @@ svg.leaflet-image-layer.leaflet-interactive path {\r
             else devInp.value = dv;
             usageCb.checked = cfg.show_usage !== false;
             favCb.checked = cfg.show_fav === true;
+            countInp.value = String(cfg.show_count != null ? cfg.show_count : 10);
             if (el._usageSw) el._usageSw.checked = usageCb.checked;
             if (el._favSw) el._favSw.checked = favCb.checked;
           };
@@ -11583,12 +11598,14 @@ svg.leaflet-image-layer.leaflet-interactive path {\r
           devInp.addEventListener("input", fire);
           usageCb.addEventListener("change", fire);
           favCb.addEventListener("change", fire);
+          countInp.addEventListener("input", fire);
           Object.defineProperty(el, "value", { get() {
             const v = {
               type: "custom:opinet-rank-card",
               title: titleInp.value,
               show_usage: usageCb.checked,
-              show_fav: favCb.checked
+              show_fav: favCb.checked,
+              show_count: parseInt(countInp.value, 10) || 10
             };
             const dv = (el._devPick ? el._devPick.value : devInp.value) || "";
             if (dv) v.device = dv;
@@ -11597,7 +11614,7 @@ svg.leaflet-image-layer.leaflet-interactive path {\r
           return el;
         }
         static getStubConfig() {
-          return { title: "\u26FD \uC624\uD53C\uB137 \uC8FC\uC720\uC18C", show_usage: true, show_fav: false };
+          return { title: "\u26FD \uC624\uD53C\uB137 \uC8FC\uC720\uC18C", show_usage: true, show_fav: false, show_count: 10 };
         }
       }
       customElements.define("opinet-rank-card", OpinetRankCard);

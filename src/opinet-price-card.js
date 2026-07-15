@@ -182,13 +182,15 @@ function findUsage(hass) {
 // ================================================================
 if (!customElements.get('opinet-rank-card')) {
   class OpinetRankCard extends HTMLElement {
-    setConfig(c) { this._cfg = { title: '⛽ 오피넷 주유소', show_usage: true, show_fav: false, ...c }; }
+    setConfig(c) { this._cfg = { title: '⛽ 오피넷 주유소', show_usage: true, show_fav: false, show_count: 10, ...c }; }
     set hass(h) { this._hass = h; if (this._cfg) this._draw(); }
     _draw() {
       const { stations, favorites } = findStations(this._hass, this._cfg.device, this._cfg.show_fav);
       const refreshBtn = findRefreshButton(this._hass);
       const usageEid = findUsage(this._hass);
       let rows = '';
+      const maxStations = this._cfg.show_count || 10;
+      const shownStations = stations.slice(0, maxStations);
       if (favorites.length) {
         for (const s of favorites) {
           const p = s['가격'] ? Number(s['가격']).toLocaleString() : '-';
@@ -196,8 +198,8 @@ if (!customElements.get('opinet-rank-card')) {
           rows += `<tr class="ow ofav" data-eid="${s.eid}"><td class="or1">★</td><td class="or2">${s['주유소명']||'-'}</td><td class="or3">${p}원</td><td class="or4">${d}</td></tr>`;
         }
       }
-      if (stations.length) {
-        for (const s of stations) {
+      if (shownStations.length) {
+        for (const s of shownStations) {
           const p = s['가격'] ? Number(s['가격']).toLocaleString() : '-';
           const d = s['거리'] || '-';
           rows += `<tr class="ow" data-eid="${s.eid}"><td class="or1">${s['순위']}위</td><td class="or2">${s['주유소명']||'-'}</td><td class="or3">${p}원</td><td class="or4">${d}</td></tr>`;
@@ -269,6 +271,20 @@ if (!customElements.get('opinet-rank-card')) {
       favLbl.appendChild(document.createTextNode('즐겨찾기 표시'));
       el.appendChild(favLbl);
 
+      // count input — same pattern as switches above
+      const countLbl = document.createElement('label');
+      countLbl.style.cssText = 'display:flex;align-items:center;gap:8px;font-size:14px;';
+      countLbl.appendChild(document.createTextNode('표시 개수:'));
+      const countInp = document.createElement('input');
+      countInp.type = 'number';
+      countInp.min = 1;
+      countInp.max = 50;
+      countInp.step = 1;
+      countInp.value = '10';
+      countInp.style.cssText = 'width:72px;padding:6px;font-size:14px;border:1px solid var(--divider-color,#ccc);border-radius:4px;background:var(--card-background-color,#fff);color:var(--primary-text-color,#000);text-align:center';
+      countLbl.appendChild(countInp);
+      el.appendChild(countLbl);
+
       // Try to upgrade to entity-picker once defined
       let _done = false;
       const upgrade = () => {
@@ -337,6 +353,7 @@ if (!customElements.get('opinet-rank-card')) {
         else devInp.value = dv;
         usageCb.checked = cfg.show_usage !== false;
         favCb.checked = cfg.show_fav === true;
+        countInp.value = String(cfg.show_count != null ? cfg.show_count : 10);
         if (el._usageSw) el._usageSw.checked = usageCb.checked;
         if (el._favSw) el._favSw.checked = favCb.checked;
       };
@@ -350,6 +367,7 @@ if (!customElements.get('opinet-rank-card')) {
       devInp.addEventListener('input', fire);
       usageCb.addEventListener('change', fire);
       favCb.addEventListener('change', fire);
+      countInp.addEventListener('input', fire);
 
       Object.defineProperty(el, 'value', { get() {
         const v = {
@@ -357,6 +375,7 @@ if (!customElements.get('opinet-rank-card')) {
           title: titleInp.value,
           show_usage: usageCb.checked,
           show_fav: favCb.checked,
+          show_count: parseInt(countInp.value, 10) || 10,
         };
         const dv = (el._devPick ? el._devPick.value : devInp.value) || '';
         if (dv) v.device = dv;
@@ -365,7 +384,7 @@ if (!customElements.get('opinet-rank-card')) {
       return el;
     }
     static getStubConfig() {
-      return { title: '⛽ 오피넷 주유소', show_usage: true, show_fav: false };
+      return { title: '⛽ 오피넷 주유소', show_usage: true, show_fav: false, show_count: 10 };
     }
   }
   customElements.define('opinet-rank-card', OpinetRankCard);

@@ -1,1 +1,3 @@
-node_modules/
+# 에이전트 설정 파일 — 원격에 푸시 금지
+AGENTS.md
+docs/
