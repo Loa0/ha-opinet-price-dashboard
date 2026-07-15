@@ -191,13 +191,8 @@ if (!customElements.get('opinet-rank-card')) {
       let rows = '';
       const maxStations = this._cfg.show_count || 10;
       const shownStations = stations.slice(0, maxStations);
-      if (favorites.length) {
-        for (const s of favorites) {
-          const p = s['가격'] ? Number(s['가격']).toLocaleString() : '-';
-          const d = s['거리'] || '-';
-          rows += `<tr class="ow ofav" data-eid="${s.eid}"><td class="or1">★</td><td class="or2">${s['주유소명']||'-'}</td><td class="or3">${p}원</td><td class="or4">${d}</td></tr>`;
-        }
-      }
+
+      // Ranking rows first
       if (shownStations.length) {
         for (const s of shownStations) {
           const p = s['가격'] ? Number(s['가격']).toLocaleString() : '-';
@@ -207,6 +202,17 @@ if (!customElements.get('opinet-rank-card')) {
       } else {
         rows = '<tr><td colspan="4" style="text-align:center;padding:16px;">데이터 없음</td></tr>';
       }
+
+      // Favorites below ranking with separator
+      let favRows = '';
+      if (favorites.length) {
+        favRows += '<tr class="ofsep"><td colspan="4">★ 즐겨찾기</td></tr>';
+        for (const s of favorites) {
+          const p = s['가격'] ? Number(s['가격']).toLocaleString() : '-';
+          const d = s['거리'] || '-';
+          favRows += `<tr class="ow ofav" data-eid="${s.eid}"><td class="or1">★</td><td class="or2">${s['주유소명']||'-'}</td><td class="or3">${p}원</td><td class="or4">${d}</td></tr>`;
+        }
+      }
       const refreshHtml = refreshBtn ? '<ha-icon-button class="oref"><ha-icon icon="mdi:refresh"></ha-icon></ha-icon-button>' : '';
       let usageHtml = '';
       if (this._cfg.show_usage && usageEid) {
@@ -215,11 +221,11 @@ if (!customElements.get('opinet-rank-card')) {
       }
       this.innerHTML = `<ha-card>
         <div class="oh"><span>${this._cfg.title}</span>${refreshHtml}</div>
-        <table class="ot">${rows}</table>${usageHtml}
+        <table class="ot">${rows}${favRows}</table>${usageHtml}
       </ha-card>`;
       if (!this.querySelector('style')) {
         const st = document.createElement('style');
-        st.textContent = '.oh{display:flex;justify-content:space-between;align-items:center;padding:12px 16px 8px;font-size:1.1em;font-weight:500} .ot{width:100%;border-collapse:collapse;font-size:.95em;padding:0 8px 8px} .ow{cursor:pointer;border-bottom:1px solid var(--divider-color,#e0e0e0)} .ow:hover{background:var(--table-row-hover-background-color,rgba(0,0,0,.04))} .or1{width:32px;text-align:center;color:var(--secondary-text-color);padding:6px 4px} .or2{padding:6px 4px} .or3{text-align:right;font-weight:600;padding:6px 4px} .or4{text-align:right;color:var(--secondary-text-color);font-size:.85em;padding:6px 4px} .ous{padding:4px 16px 0;font-size:.78em;color:var(--secondary-text-color);text-align:right}';
+        st.textContent = '.oh{display:flex;justify-content:space-between;align-items:center;padding:12px 16px 8px;font-size:1.1em;font-weight:500} .ot{width:100%;border-collapse:collapse;font-size:.95em;padding:0 8px 8px} .ow{cursor:pointer;border-bottom:1px solid var(--divider-color,#e0e0e0)} .ow:hover{background:var(--table-row-hover-background-color,rgba(0,0,0,.04))} .or1{width:32px;text-align:center;color:var(--secondary-text-color);padding:6px 4px} .or2{padding:6px 4px} .or3{text-align:right;font-weight:600;padding:6px 4px} .or4{text-align:right;color:var(--secondary-text-color);font-size:.85em;padding:6px 4px} .ofsep{background:var(--secondary-background-color,rgba(0,0,0,.03));font-size:.8em;font-weight:600;color:var(--secondary-text-color);padding:6px 16px;border-bottom:2px solid var(--divider-color,#e0e0e0)} .ous{padding:4px 16px 0;font-size:.78em;color:var(--secondary-text-color);text-align:right}';
         this.appendChild(st);
       }
       const rf = this.querySelector('.oref');
