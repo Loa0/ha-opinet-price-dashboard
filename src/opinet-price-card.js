@@ -420,7 +420,7 @@ if (!customElements.get('opinet-map-card')) {
       this.attachShadow({ mode: 'open' });
     }
 
-    setConfig(c) { this._cfg = { max_markers: 0, height: 400, ...c }; }
+    setConfig(c) { this._cfg = { max_markers: 0, height: 400, tiles: null, tiles_attribution: null, ...c }; }
 
     set hass(h) {
       this._hass = h;
@@ -551,13 +551,43 @@ if (!customElements.get('opinet-map-card')) {
         scrollWheelZoom: true,
       }).setView([36.5, 127.5], zoom);
 
-      // Basemap: OpenStreetMap. CartoDB basemaps now require an API key, which made
-      // every tile a blank "API KEY REQUIRED" placeholder image.
-      L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        className: 'map-tiles',
-        maxZoom: 19,
-        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-      }).addTo(map);
+      // Basemap: 키가 필요 없는 타일만 사용한다.
+      //  - CartoDB: API 키 요구 (타일이 "API KEY REQUIRED" 자리표시자로 대체됨)
+      //  - tile.openstreetmap.org: Referer 없는 요청(모바일 앱/웹뷰)을 403 "Access blocked" 로 차단
+      //    → 기본은 OpenStreetMap DE 미러, 실패 시 Esri 로 자동 폴백
+      const basemaps = [
+        {
+          url: this._cfg.tiles || 'https://tile.openstreetmap.de/{z}/{x}/{y}.png',
+          attr: this._cfg.tiles_attribution ||
+            '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+        },
+        {
+          url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}',
+          attr: 'Tiles &copy; Esri',
+        },
+      ];
+      let bmIndex = 0;
+      let tileErrors = 0;
+      let switched = false;
+      const addBasemap = () => {
+        const bm = basemaps[bmIndex];
+        const layer = L.tileLayer(bm.url, {
+          className: 'map-tiles',
+          maxZoom: 19,
+          attribution: bm.attr,
+        });
+        layer.on('tileerror', () => {
+          tileErrors += 1;
+          if (!switched && tileErrors >= 2 && bmIndex < basemaps.length - 1) {
+            switched = true;
+            map.removeLayer(layer);
+            bmIndex += 1;
+            addBasemap();
+          }
+        });
+        layer.addTo(map);
+      };
+      addBasemap();
 
       // center marker (user location) — orange dot
       if (this._centerLat != null) {

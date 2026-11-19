@@ -10633,7 +10633,7 @@ svg.leaflet-image-layer.leaflet-interactive path {\r
           this.attachShadow({ mode: "open" });
         }
         setConfig(c) {
-          this._cfg = { max_markers: 0, height: 400, ...c };
+          this._cfg = { max_markers: 0, height: 400, tiles: null, tiles_attribution: null, ...c };
         }
         set hass(h) {
           this._hass = h;
@@ -10747,11 +10747,38 @@ svg.leaflet-image-layer.leaflet-interactive path {\r
             zoomControl: false,
             scrollWheelZoom: true
           }).setView([36.5, 127.5], zoom);
-          import_leaflet.default.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
-            className: "map-tiles",
-            maxZoom: 19,
-            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-          }).addTo(map);
+          const basemaps = [
+            {
+              url: this._cfg.tiles || "https://tile.openstreetmap.de/{z}/{x}/{y}.png",
+              attr: this._cfg.tiles_attribution || '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+            },
+            {
+              url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}",
+              attr: "Tiles &copy; Esri"
+            }
+          ];
+          let bmIndex = 0;
+          let tileErrors = 0;
+          let switched = false;
+          const addBasemap = () => {
+            const bm = basemaps[bmIndex];
+            const layer = import_leaflet.default.tileLayer(bm.url, {
+              className: "map-tiles",
+              maxZoom: 19,
+              attribution: bm.attr
+            });
+            layer.on("tileerror", () => {
+              tileErrors += 1;
+              if (!switched && tileErrors >= 2 && bmIndex < basemaps.length - 1) {
+                switched = true;
+                map.removeLayer(layer);
+                bmIndex += 1;
+                addBasemap();
+              }
+            });
+            layer.addTo(map);
+          };
+          addBasemap();
           if (this._centerLat != null) {
             import_leaflet.default.marker([this._centerLat, this._centerLon], {
               icon: import_leaflet.default.divIcon({ className: "ouser", iconSize: [16, 16], iconAnchor: [8, 8] }),

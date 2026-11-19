@@ -56,6 +56,11 @@ device: sensor.opines_juyuso_1wi   # 대상 기기 (다중 인스턴스 시 필�
 - **사용자 위치 점 z-index 하향**: 가격 라벨이 사용자 점에 가려지지 않도록 조정
 - 불필요해진 `leaflet-providers` 의존성 제거 (번들 크기 약 42KB 감소)
 
+### v3.9.4
+- **타일 차단 대응**: `tile.openstreetmap.org` 는 Referer 없는 요청(모바일 앱·웹뷰)을 `403 Access blocked` 로 차단
+  → 기본 베이스맵을 **OpenStreetMap DE 미러**로 변경, 타일 오류 2회 감지 시 **Esri World Street Map** 으로 자동 폴백
+- `tiles` / `tiles_attribution` 옵션 추가 (원하는 타일 서버로 교체 가능)
+
 ## 요구사항
 
 - Home Assistant 2022.11+
