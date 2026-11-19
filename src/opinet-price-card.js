@@ -1,5 +1,4 @@
 import L from 'leaflet';
-import 'leaflet-providers';
 import leafletCSS from 'leaflet/dist/leaflet.css';
 
 (function(){
@@ -378,6 +377,39 @@ if (!customElements.get('opinet-rank-card')) {
   customElements.define('opinet-rank-card-editor', OpinetRankCardEditor);
 }
 
+
+// 가격 라벨이 겹치면 작은 링으로 흩뿌려 읽을 수 있게 한다 (클러스터 플러그인 없이 처리)
+function declutterMarkers(map, markers) {
+  if (!map || !markers) return;
+  const OFFSETS = [[0, 0], [0, -18], [26, -10], [-26, -10], [26, 12], [-26, 12], [0, 20],
+                   [44, -18], [-44, -18], [44, 18], [-44, 18], [0, -36], [0, 38]];
+  const placed = [];
+  for (const m of markers) {
+    const el = m.getElement && m.getElement();
+    if (!el) continue;
+    el.style.marginLeft = '0px';
+    el.style.marginTop = '0px';
+    const inEl = el.firstElementChild;
+    const w = (inEl && inEl.offsetWidth) || 48;
+    const h = (inEl && inEl.offsetHeight) || 16;
+    const pt = map.latLngToContainerPoint(m.getLatLng());
+    let done = false;
+    for (const [dx, dy] of OFFSETS) {
+      const cand = { x: pt.x + dx, y: pt.y + dy, hw: w / 2, hh: h / 2 };
+      const hit = placed.some((q) => Math.abs(q.x - cand.x) < q.hw + cand.hw + 2 &&
+                                     Math.abs(q.y - cand.y) < q.hh + cand.hh + 1);
+      if (!hit) {
+        el.style.marginLeft = dx + 'px';
+        el.style.marginTop = dy + 'px';
+        placed.push(cand);
+        done = true;
+        break;
+      }
+    }
+    if (!done) placed.push({ x: pt.x, y: pt.y, hw: w / 2, hh: h / 2 });
+  }
+}
+
 // ================================================================
 // Map Card — vehicle-status-card Shadow DOM 패턴
 // ================================================================
@@ -472,15 +504,22 @@ if (!customElements.get('opinet-map-card')) {
           .leaflet-control-container { display: none; }
           #omap { height: 100%; width: 100%; background: transparent !important; }
           .oprice {
-            background: #1976d2 !important;
-            color: #fff !important;
+            background: transparent !important;
+            border: none !important;
+            width: 0 !important;
+            height: 0 !important;
+          }
+          .oprice-in {
+            display: inline-block;
+            transform: translate(-50%, -50%);
+            background: #1976d2;
+            color: #fff;
             padding: 2px 6px;
             border-radius: 4px;
             font-size: 11px;
             font-weight: 600;
             white-space: nowrap;
             box-shadow: 0 1px 3px rgba(0,0,0,.3);
-            border: none !important;
             text-align: center;
           }
           .ouser {
@@ -512,18 +551,19 @@ if (!customElements.get('opinet-map-card')) {
         scrollWheelZoom: true,
       }).setView([36.5, 127.5], zoom);
 
-      L.tileLayer.provider('CartoDB.Positron', {
+      // Basemap: OpenStreetMap. CartoDB basemaps now require an API key, which made
+      // every tile a blank "API KEY REQUIRED" placeholder image.
+      L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
         className: 'map-tiles',
-        detectRetina: true,
-        tileSize: L.Browser.retina ? 512 : 256,
-        zoomOffset: L.Browser.retina ? -1 : 0,
-        transparent: true,
+        maxZoom: 19,
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
       }).addTo(map);
 
       // center marker (user location) — orange dot
       if (this._centerLat != null) {
         L.marker([this._centerLat, this._centerLon], {
           icon: L.divIcon({ className: 'ouser', iconSize: [16, 16], iconAnchor: [8, 8] }),
+          zIndexOffset: -1000, // 가격 라벨이 사용자 점 위로 보이도록
         }).addTo(map);
         map.setView([this._centerLat, this._centerLon], zoom);
       }
@@ -539,7 +579,8 @@ if (!customElements.get('opinet-map-card')) {
         const addr = t['주소'] || '';
         const icon = L.divIcon({
           className: 'oprice',
-          html: price,
+          html: `<span class="oprice-in">${price}</span>`,
+          iconSize: [0, 0],
         });
         const marker = L.marker([lat, lon], { icon }).addTo(map);
         marker.on('click', () => {
@@ -554,15 +595,34 @@ if (!customElements.get('opinet-map-card')) {
         this._markers.push(marker);
         bounds.push([lat, lon]);
       }
-      // fitBounds only if there are price markers AND no center tracker focus
-      if (bounds.length && this._centerLat == null) {
-        map.fitBounds(bounds, { padding: [30, 30] });
-      }
+      // fitBounds must wait until the container has a real size: when the card is
+      // created while hidden/collapsed the container is 0x0, Leaflet clamps the fit
+      // to maxZoom and every marker ends up far outside the visible area.
+      this._fitPts = bounds.length
+        ? (this._centerLat != null ? bounds.concat([[this._centerLat, this._centerLon]]) : bounds)
+        : null;
+      this._fitted = false;
+
+      const applyFit = () => {
+        if (this._fitPts && c.clientWidth > 0) {
+          map.fitBounds(this._fitPts, { padding: [40, 40], maxZoom: 16 });
+          this._fitted = true;
+        }
+      };
+      const applyDeclutter = () => declutterMarkers(map, this._markers || []);
+
+      applyFit();
 
       this._map = map;
+      map.on('zoomend', applyDeclutter);
 
-      this._ro = new ResizeObserver(() => map.invalidateSize(false));
+      this._ro = new ResizeObserver(() => {
+        map.invalidateSize(false);
+        if (!this._fitted) applyFit();
+        applyDeclutter();
+      });
       this._ro.observe(c);
+      requestAnimationFrame(applyDeclutter);
     }
 
     disconnectedCallback() {

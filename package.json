@@ -1,6 +1,6 @@
 {
   "name": "ha-opinet-price-dashboard",
-  "version": "3.9.1",
+  "version": "3.9.3",
   "private": true,
   "scripts": {
     "build": "node build.mjs"
@@ -9,7 +9,6 @@
     "esbuild": "^0.25.0"
   },
   "dependencies": {
-    "leaflet": "^1.9.4",
-    "leaflet-providers": "^3.0.0"
+    "leaflet": "^1.9.4"
   }
 }
